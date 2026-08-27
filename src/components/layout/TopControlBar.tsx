@@ -4,7 +4,6 @@ import { CustomerScreen, BusinessScreen } from '../../types';
 import { 
   Smartphone, 
   Maximize2, 
-  Columns, 
   User, 
   Store, 
   RotateCcw, 
@@ -272,31 +271,22 @@ export const TopControlBar: React.FC = () => {
           <div className="flex items-center bg-[#161622] rounded-lg p-0.5 border border-white/10 text-xs">
             <button
               onClick={() => setDeviceViewMode('mobile')}
-              title="Mobile Device Mockup"
-              className={`p-1.5 rounded-md transition-all ${
-                deviceViewMode === 'mobile' ? 'bg-gold-400 text-black shadow-sm' : 'text-gray-400 hover:text-white'
+              title="Mobile Application View"
+              className={`flex items-center gap-1 px-2 py-1 rounded-md transition-all ${
+                deviceViewMode === 'mobile' ? 'bg-gold-400 text-black shadow-sm font-semibold' : 'text-gray-400 hover:text-white'
               }`}
             >
-              <Smartphone className="w-4 h-4" />
-            </button>
-            <button
-              onClick={() => setDeviceViewMode('dual')}
-              title="Split-Screen Dual View (Customer + Business side-by-side)"
-              className={`p-1.5 rounded-md transition-all flex items-center gap-1 ${
-                deviceViewMode === 'dual' ? 'bg-gold-400 text-black shadow-sm' : 'text-gray-400 hover:text-white'
-              }`}
-            >
-              <Columns className="w-4 h-4" />
-              <span className="text-[10px] font-bold hidden lg:inline">Dual Live</span>
+              <Smartphone className="w-3.5 h-3.5" />
+              <span className="text-[11px] hidden sm:inline">Mobile App</span>
             </button>
             <button
               onClick={() => setDeviceViewMode('fullscreen')}
-              title="Full Width View"
+              title="Full Width Screen View"
               className={`p-1.5 rounded-md transition-all ${
                 deviceViewMode === 'fullscreen' ? 'bg-gold-400 text-black shadow-sm' : 'text-gray-400 hover:text-white'
               }`}
             >
-              <Maximize2 className="w-4 h-4" />
+              <Maximize2 className="w-3.5 h-3.5" />
             </button>
           </div>
 
