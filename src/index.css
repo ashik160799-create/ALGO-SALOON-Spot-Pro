@@ -1,0 +1,175 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --gold-primary: #D4AF37;
+    --gold-hover: #F3BA2F;
+    --bg-dark: #08080C;
+    --card-dark: #12121A;
+  }
+
+  body {
+    background-color: #08080C;
+    color: #F3F4F6;
+    font-family: 'Plus Jakarta Sans', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  h1, h2, h3, h4, h5, h6, .font-heading {
+    font-family: 'Outfit', sans-serif;
+    letter-spacing: -0.01em;
+  }
+}
+
+/* Custom Luxury Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #0D0D14;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #28283C;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #D4AF37;
+}
+
+/* Hide scrollbar for tabs */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Glassmorphism & Luxury Component Utilities */
+.glass-panel {
+  background: rgba(18, 18, 26, 0.85);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(212, 175, 55, 0.15);
+}
+
+.glass-card {
+  background: linear-gradient(180deg, rgba(24, 24, 36, 0.75) 0%, rgba(14, 14, 22, 0.92) 100%);
+  backdrop-filter: blur(14px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.42);
+}
+
+.glass-card-gold {
+  background: linear-gradient(135deg, rgba(35, 28, 16, 0.85) 0%, rgba(18, 18, 26, 0.95) 100%);
+  backdrop-filter: blur(14px);
+  border: 1px solid rgba(212, 175, 55, 0.35);
+  box-shadow: 0 6px 24px 0 rgba(212, 175, 55, 0.15);
+}
+
+.gold-gradient-btn {
+  background: linear-gradient(135deg, #F3BA2F 0%, #D4AF37 50%, #C5A028 100%);
+  color: #0A0A0E;
+  font-weight: 700;
+  box-shadow: 0 4px 16px rgba(212, 175, 55, 0.32);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.gold-gradient-btn:hover {
+  background: linear-gradient(135deg, #FFE066 0%, #E5C07B 50%, #D4AF37 100%);
+  box-shadow: 0 6px 24px rgba(212, 175, 55, 0.5);
+  transform: translateY(-1px);
+}
+
+.gold-gradient-btn:active {
+  transform: translateY(0) scale(0.98);
+}
+
+.gold-outline-btn {
+  border: 1px solid #D4AF37;
+  color: #D4AF37;
+  background: rgba(212, 175, 55, 0.06);
+  transition: all 0.2s ease;
+}
+
+.gold-outline-btn:hover {
+  background: rgba(212, 175, 55, 0.18);
+  border-color: #F3BA2F;
+  color: #F3BA2F;
+}
+
+.gold-text-gradient {
+  background: linear-gradient(135deg, #FFF0B3 0%, #D4AF37 50%, #B8860B 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.font-luxury {
+  font-family: 'Cinzel', serif;
+  letter-spacing: 0.05em;
+}
+
+.status-badge-pending {
+  background: rgba(245, 158, 11, 0.15);
+  border: 1px solid rgba(245, 158, 11, 0.4);
+  color: #FBBF24;
+}
+
+.status-badge-confirmed {
+  background: rgba(16, 185, 129, 0.15);
+  border: 1px solid rgba(16, 185, 129, 0.4);
+  color: #34D399;
+}
+
+.status-badge-completed {
+  background: rgba(59, 130, 246, 0.15);
+  border: 1px solid rgba(59, 130, 246, 0.4);
+  color: #60A5FA;
+}
+
+.status-badge-cancelled {
+  background: rgba(239, 68, 68, 0.15);
+  border: 1px solid rgba(239, 68, 68, 0.4);
+  color: #F87171;
+}
+
+/* Animations */
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.animate-shimmer {
+  background: linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(212,175,55,0.18) 50%, rgba(255,255,255,0) 100%);
+  background-size: 200% 100%;
+  animation: shimmer 2.5s infinite;
+}
+
+@keyframes pulseGlow {
+  0%, 100% {
+    box-shadow: 0 0 15px rgba(212, 175, 55, 0.2);
+  }
+  50% {
+    box-shadow: 0 0 28px rgba(212, 175, 55, 0.55);
+  }
+}
+
+.pulse-gold {
+  animation: pulseGlow 2.5s infinite;
+}
+
+@keyframes spinSlow {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.animate-spin-slow {
+  animation: spinSlow 12s linear infinite;
+}
