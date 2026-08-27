@@ -14,7 +14,8 @@ import { ShopSettingsScreen } from './ShopSettingsScreen';
 import { BusinessBottomNav } from '../layout/BusinessBottomNav';
 
 export const BusinessAppRoot: React.FC = () => {
-  const { businessScreen, currentBusinessShop, setBusinessScreen, supabaseSession } = useApp();
+  const { businessScreen, currentBusinessShop, setBusinessScreen, supabaseSession, theme } = useApp();
+  const isWhite = theme === 'white';
 
   const isShopRegistered = Boolean(
     currentBusinessShop && 
@@ -71,7 +72,9 @@ export const BusinessAppRoot: React.FC = () => {
   const showBottomNav = isShopRegistered && businessScreen !== 'register_shop' && businessScreen !== 'auth';
 
   return (
-    <div className="flex flex-col h-full bg-[#0A0A0F] text-white select-none">
+    <div className={`flex flex-col h-full select-none transition-colors duration-300 ${
+      isWhite ? 'bg-[#F8F9FD] text-[#111827]' : 'bg-[#0A0A0F] text-white'
+    }`}>
       <div className="flex-1 overflow-y-auto no-scrollbar">
         {renderScreen()}
       </div>

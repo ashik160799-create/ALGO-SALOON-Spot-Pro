@@ -7,35 +7,41 @@ import {
   User, 
   Store, 
   RotateCcw, 
-  Sparkles,
-  Scissors,
-  CheckCircle2,
-  Globe,
-  MapPin,
-  Layers,
-  ChevronDown,
-  LayoutGrid
+  Sparkles, 
+  Scissors, 
+  CheckCircle2, 
+  Globe, 
+  MapPin, 
+  Layers, 
+  ChevronDown, 
+  LayoutGrid,
+  Sun,
+  Moon
 } from 'lucide-react';
-import { CurrencySwitcherModal } from '../common/CurrencySwitcherModal';
+import { CustomerLocationModal } from '../common/CustomerLocationModal';
 
 export const TopControlBar: React.FC = () => {
   const { 
     mode, 
     setMode, 
-    customerScreen,
-    setCustomerScreen,
-    businessScreen,
-    setBusinessScreen,
-    customer,
-    currentBusinessShop,
-    supabaseSession,
+    customerScreen, 
+    setCustomerScreen, 
+    businessScreen, 
+    setBusinessScreen, 
+    customer, 
+    customerLocation, 
+    currentBusinessShop, 
+    supabaseSession, 
     deviceViewMode, 
     setDeviceViewMode, 
-    bookings,
-    currency
+    bookings, 
+    currency, 
+    isLocationModalOpen, 
+    setIsLocationModalOpen,
+    theme,
+    setTheme
   } = useApp();
 
-  const [showCurrencyModal, setShowCurrencyModal] = useState(false);
   const [showScreenNav, setShowScreenNav] = useState(false);
 
   const pendingCount = bookings.filter(b => b.status === 'pending').length;
@@ -81,31 +87,31 @@ export const TopControlBar: React.FC = () => {
     : (businessScreensList.find(s => s.id === businessScreen)?.icon || '🏢');
 
   return (
-    <header className="sticky top-0 z-50 bg-[#0D0D14]/95 backdrop-blur-md border-b border-[#242436] px-4 py-2.5 shadow-lg">
+    <header className="sticky top-0 z-50 bg-[#0A0A10]/95 backdrop-blur-xl border-b border-gold-400/15 px-4 py-2.5 shadow-[0_4px_25px_rgba(0,0,0,0.8)]">
       <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-3">
         {/* Brand & Logo */}
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-gold-amber via-gold-400 to-gold-600 flex items-center justify-center shadow-gold-sm">
-            <Scissors className="w-5 h-5 text-black font-bold" />
+          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#FFE088] via-[#D4AF37] to-[#8C6B10] flex items-center justify-center shadow-gold-sm ring-1 ring-gold-300/40">
+            <Scissors className="w-5 h-5 text-[#0A0A0F] font-bold" />
           </div>
           <div>
             <div className="flex items-center gap-2">
               <span className="font-heading font-extrabold text-lg tracking-wider text-white">
-                ALGO <span className="text-gold-400">SALOON</span>
+                ALGO <span className="gold-text-gradient">SALOON</span>
               </span>
-              <span className="text-[10px] uppercase font-bold tracking-widest px-1.5 py-0.5 rounded bg-gold-400/10 text-gold-400 border border-gold-400/20">
+              <span className="text-[10px] uppercase font-bold tracking-widest px-2 py-0.5 rounded-full bg-gold-400/15 text-gold-300 border border-gold-400/30 shadow-[0_0_10px_rgba(212,175,55,0.2)]">
                 Spot Pro
               </span>
             </div>
-            <p className="text-[11px] text-gray-400 hidden sm:block">
-              Look Good. Feel Great. | Customer & Business Unified Platform
+            <p className="text-[11px] text-gray-400 hidden sm:block font-body">
+              Look Good. Feel Great. | Unified Luxury Mobile Experience
             </p>
           </div>
         </div>
 
         {/* Center: Dual Role Switcher & Screen Navigation Selector */}
         <div className="flex items-center gap-2">
-          <div className="flex items-center gap-1.5 bg-[#161622] p-1 rounded-xl border border-white/10">
+          <div className="flex items-center gap-1.5 bg-[#12121A] p-1 rounded-xl border border-white/10 shadow-inner">
             <button
               onClick={() => {
                 setMode('customer');
@@ -118,8 +124,8 @@ export const TopControlBar: React.FC = () => {
               }}
               className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
                 mode === 'customer' && deviceViewMode !== 'dual'
-                  ? 'bg-gradient-to-r from-gold-500 to-gold-400 text-black shadow-md'
-                  : 'text-gray-400 hover:text-white'
+                  ? 'gold-gradient-btn'
+                  : 'text-gray-400 hover:text-white hover:bg-white/5'
               }`}
             >
               <User className="w-3.5 h-3.5" />
@@ -140,14 +146,14 @@ export const TopControlBar: React.FC = () => {
               }}
               className={`relative flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
                 mode === 'business' && deviceViewMode !== 'dual'
-                  ? 'bg-gradient-to-r from-gold-500 to-gold-400 text-black shadow-md'
-                  : 'text-gray-400 hover:text-white'
+                  ? 'gold-gradient-btn'
+                  : 'text-gray-400 hover:text-white hover:bg-white/5'
               }`}
             >
               <Store className="w-3.5 h-3.5" />
               <span>Business Portal</span>
               {pendingCount > 0 && (
-                <span className="flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[10px] font-bold text-black bg-amber-400 rounded-full animate-pulse">
+                <span className="flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[10px] font-bold text-black bg-amber-400 rounded-full animate-pulse shadow-[0_0_8px_rgba(245,158,11,0.6)]">
                   {pendingCount}
                 </span>
               )}
@@ -239,18 +245,38 @@ export const TopControlBar: React.FC = () => {
           </div>
         </div>
 
-        {/* Right: Currency Selector, View Modes & Reset Demo */}
+        {/* Right: Customer Location Picker / Business Settlement Badge, View Modes & Reset */}
         <div className="flex items-center gap-2">
-          {/* Live Auto-Detected Currency Button */}
-          <button
-            onClick={() => setShowCurrencyModal(true)}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-[#161622] border border-white/10 hover:border-gold-400/40 text-xs font-semibold text-white transition-colors"
-            title="Country Settlement Currency"
-          >
-            <span className="text-sm">{currency.flag}</span>
-            <span className="text-gold-400 font-bold">{currency.symbol}</span>
-            <span className="text-gray-400 text-[10px] hidden sm:inline">{currency.code}</span>
-          </button>
+          {mode === 'customer' ? (
+            /* Customer Location & Country Button */
+            <button
+              onClick={() => setIsLocationModalOpen(true)}
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-[#161622] border border-gold-400/30 hover:border-gold-400/60 text-xs font-semibold text-white transition-all shadow-sm group"
+              title="Customer Location & Country"
+            >
+              <MapPin className="w-3.5 h-3.5 text-gold-400 group-hover:animate-bounce" />
+              <span className="text-gray-300 font-medium text-[11px] max-w-[100px] truncate">
+                {customerLocation?.city || 'Dubai'}
+              </span>
+              <span className="text-gold-400 font-bold font-mono text-[10px] px-1 py-0.5 rounded bg-gold-400/10 border border-gold-400/20">
+                {customerLocation?.countryCode || 'AE'}
+              </span>
+            </button>
+          ) : (
+            /* Business Fixed Settlement Currency Badge */
+            <div 
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-[#161622] border border-white/10 text-xs font-semibold text-white"
+              title="Business Permanent Settlement Currency"
+            >
+              <span className="w-2 h-2 rounded-full bg-emerald-400" />
+              <span className="text-gold-400 font-bold">
+                {currentBusinessShop?.currencySymbol || currentBusinessShop?.currency || 'AED'}
+              </span>
+              <span className="text-gray-400 text-[10px] hidden sm:inline">
+                {currentBusinessShop?.country || 'UAE'}
+              </span>
+            </div>
+          )}
 
           {/* Live Request Alert Pill */}
           {pendingCount > 0 && (
@@ -290,6 +316,29 @@ export const TopControlBar: React.FC = () => {
             </button>
           </div>
 
+          {/* Theme Switcher: Dark vs White Mode */}
+          <button
+            onClick={() => setTheme(theme === 'white' ? 'dark' : 'white')}
+            title={`Switch to ${theme === 'white' ? 'Dark' : 'White'} Mode`}
+            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border text-xs font-bold transition-all shadow-sm ${
+              theme === 'white'
+                ? 'bg-purple-50 border-purple-300 text-purple-700 hover:bg-purple-100'
+                : 'bg-[#161622] border-gold-400/30 text-gold-300 hover:border-gold-400/60'
+            }`}
+          >
+            {theme === 'white' ? (
+              <>
+                <Sun className="w-3.5 h-3.5 text-amber-500" />
+                <span className="text-[11px] hidden sm:inline">White Mode</span>
+              </>
+            ) : (
+              <>
+                <Moon className="w-3.5 h-3.5 text-gold-400" />
+                <span className="text-[11px] hidden sm:inline">Dark Mode</span>
+              </>
+            )}
+          </button>
+
           {/* Refresh Database Live Data */}
           <button
             onClick={() => window.location.reload()}
@@ -301,10 +350,10 @@ export const TopControlBar: React.FC = () => {
         </div>
       </div>
 
-      {/* Currency Switcher Modal */}
-      <CurrencySwitcherModal
-        isOpen={showCurrencyModal}
-        onClose={() => setShowCurrencyModal(false)}
+      {/* Customer Location Modal */}
+      <CustomerLocationModal
+        isOpen={isLocationModalOpen}
+        onClose={() => setIsLocationModalOpen(false)}
       />
     </header>
   );

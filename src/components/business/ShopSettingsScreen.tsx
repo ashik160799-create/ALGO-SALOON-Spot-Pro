@@ -1,6 +1,8 @@
 import React, { useState, useRef } from 'react';
 import { useApp } from '../../context/AppContext';
 import { SupabaseStorage } from '../../services/supabaseStorageService';
+import { supportedCountries, getCountryByCode } from '../../data/mockData';
+import { parseCoordinatesFromMapUrl, resolveCountryFromCoordinates } from '../../utils/geoUtils';
 import { 
   ArrowLeft, 
   Store, 
@@ -28,7 +30,6 @@ import {
   AlertCircle,
   Check
 } from 'lucide-react';
-import { supportedCurrencies } from '../../data/mockData';
 
 export const ShopSettingsScreen: React.FC = () => {
   const { 
@@ -42,7 +43,7 @@ export const ShopSettingsScreen: React.FC = () => {
     deleteShopVideo,
     addShopGalleryImage, 
     deleteShopGalleryImage, 
-    uploadTradeLicenseDoc,
+    uploadTradeLicenseDoc, 
     deleteTradeLicenseDoc,
     uploadTaxVatDoc,
     deleteTaxVatDoc,
@@ -51,9 +52,8 @@ export const ShopSettingsScreen: React.FC = () => {
     setBusinessScreen,
     userLocation,
     setUserLocation,
-    currency,
-    setCurrency,
-    detectUserLocationAndCurrency
+    theme,
+    setTheme
   } = useApp();
 
   const [isCleaningStorage, setIsCleaningStorage] = useState(false);
@@ -77,8 +77,18 @@ export const ShopSettingsScreen: React.FC = () => {
   const [email, setEmail] = useState(currentBusinessShop.email || '');
   const [address, setAddress] = useState(currentBusinessShop.address || '');
   const [city, setCity] = useState(currentBusinessShop.city || '');
-  const [country, setCountry] = useState(currentBusinessShop.country || 'India');
+  const [shopCountryCode, setShopCountryCode] = useState(
+    currentBusinessShop.countryCode || 
+    (currentBusinessShop.country === 'United Arab Emirates' || currentBusinessShop.city === 'Dubai' ? 'AE' : 'IN')
+  );
   const [googleMapsUrl, setGoogleMapsUrl] = useState(currentBusinessShop.googleMapsUrl || '');
+  const [customLat, setCustomLat] = useState<number | undefined>(currentBusinessShop.latitude);
+  const [customLng, setCustomLng] = useState<number | undefined>(currentBusinessShop.longitude);
+  const [detectedGeoBadge, setDetectedGeoBadge] = useState<string | null>(
+    currentBusinessShop.latitude && currentBusinessShop.longitude 
+      ? `📍 Pinned Coordinates: ${currentBusinessShop.latitude.toFixed(4)}, ${currentBusinessShop.longitude.toFixed(4)}`
+      : null
+  );
   const [openingTime, setOpeningTime] = useState(currentBusinessShop.openingTime || '09:00 AM');
   const [closingTime, setClosingTime] = useState(currentBusinessShop.closingTime || '09:00 PM');
   const [tradeLicenseNo, setTradeLicenseNo] = useState(currentBusinessShop.tradeLicenseNo || '');
@@ -93,8 +103,16 @@ export const ShopSettingsScreen: React.FC = () => {
     setEmail(currentBusinessShop.email || '');
     setAddress(currentBusinessShop.address || '');
     setCity(currentBusinessShop.city || '');
-    setCountry(currentBusinessShop.country || 'India');
+    setShopCountryCode(
+      currentBusinessShop.countryCode || 
+      (currentBusinessShop.country === 'United Arab Emirates' || currentBusinessShop.city === 'Dubai' ? 'AE' : 'IN')
+    );
     setGoogleMapsUrl(currentBusinessShop.googleMapsUrl || '');
+    setCustomLat(currentBusinessShop.latitude);
+    setCustomLng(currentBusinessShop.longitude);
+    if (currentBusinessShop.latitude && currentBusinessShop.longitude) {
+      setDetectedGeoBadge(`📍 Pinned Coordinates: ${currentBusinessShop.latitude.toFixed(4)}, ${currentBusinessShop.longitude.toFixed(4)}`);
+    }
     setOpeningTime(currentBusinessShop.openingTime || '09:00 AM');
     setClosingTime(currentBusinessShop.closingTime || '09:00 PM');
     setTradeLicenseNo(currentBusinessShop.tradeLicenseNo || '');
@@ -253,16 +271,39 @@ export const ShopSettingsScreen: React.FC = () => {
     }
   };
 
+  const handleGoogleMapsUrlChange = (val: string) => {
+    setGoogleMapsUrl(val);
+    if (!val.trim()) {
+      setDetectedGeoBadge(null);
+      setCustomLat(undefined);
+      setCustomLng(undefined);
+      return;
+    }
+    const parsed = parseCoordinatesFromMapUrl(val);
+    if (parsed) {
+      setCustomLat(parsed.latitude);
+      setCustomLng(parsed.longitude);
+      const resolved = resolveCountryFromCoordinates(parsed.latitude, parsed.longitude);
+      setShopCountryCode(resolved.code);
+      setDetectedGeoBadge(`📍 GPS Point Extracted: ${parsed.latitude.toFixed(4)}, ${parsed.longitude.toFixed(4)} (${resolved.name} • ${resolved.currencyCode})`);
+    } else {
+      setDetectedGeoBadge(null);
+    }
+  };
+
   const handleFetchCurrentGps = () => {
     if ('geolocation' in navigator) {
       navigator.geolocation.getCurrentPosition(
         pos => {
           const lat = pos.coords.latitude;
           const lng = pos.coords.longitude;
-          const url = `https://maps.google.com/?q=${lat.toFixed(5)},${lng.toFixed(5)}`;
+          setCustomLat(lat);
+          setCustomLng(lng);
+          const resolved = resolveCountryFromCoordinates(lat, lng);
+          setShopCountryCode(resolved.code);
+          const url = `https://maps.google.com/?q=${lat.toFixed(6)},${lng.toFixed(6)}`;
           setGoogleMapsUrl(url);
-          detectUserLocationAndCurrency();
-          alert(`Google Maps & Business Location pinned from GPS:\n${url}\nCity: ${userLocation}`);
+          setDetectedGeoBadge(`📍 GPS Coordinates Pinned: ${lat.toFixed(4)}, ${lng.toFixed(4)} (${resolved.name} • ${resolved.currencyCode})`);
         },
         () => {
           alert('GPS location unavailable. Please enter coordinates or URL manually.');
@@ -273,20 +314,30 @@ export const ShopSettingsScreen: React.FC = () => {
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
+    const countryObj = getCountryByCode(shopCountryCode);
+    const finalLat = customLat ?? currentBusinessShop.latitude ?? countryObj.defaultLat;
+    const finalLng = customLng ?? currentBusinessShop.longitude ?? countryObj.defaultLng;
+
     updateShopSettings({
       name,
       phone,
       email,
       address,
       city,
-      country,
+      country: countryObj.name,
+      countryCode: countryObj.code,
+      currency: countryObj.currencyCode,
+      currencySymbol: countryObj.currencySymbol,
+      phoneCountryCode: countryObj.phoneCountryCode,
+      latitude: finalLat,
+      longitude: finalLng,
       googleMapsUrl,
       openingTime,
       closingTime,
       tradeLicenseNo,
       taxVatNo
     });
-    alert('Salon profile, map location, verification documents & compliance saved successfully!');
+    alert('Salon profile, location, currency, verification documents & compliance saved successfully!');
   };
 
   const [isDeletingShop, setIsDeletingShop] = useState(false);
@@ -308,31 +359,107 @@ export const ShopSettingsScreen: React.FC = () => {
     }
   };
 
+  const isWhite = theme === 'white';
+
   return (
-    <div className="min-h-full pb-28 bg-[#0A0A0F] text-white">
+    <div className={`min-h-full pb-28 font-body transition-colors duration-300 ${
+      isWhite ? 'bg-[#F8F9FD] text-[#111827]' : 'bg-[#08080C] text-[#F3F4F6]'
+    }`}>
       {/* Header */}
-      <div className="sticky top-0 z-30 bg-[#0A0A0F]/95 backdrop-blur-md px-4 py-3 border-b border-white/5 flex items-center justify-between">
+      <div className={`sticky top-0 z-30 backdrop-blur-xl px-4 py-3 flex items-center justify-between shadow-sm transition-colors duration-300 ${
+        isWhite 
+          ? 'bg-white/95 border-b border-purple-100 shadow-[0_2px_12px_rgba(126,34,206,0.04)]' 
+          : 'bg-[#0A0A10]/95 border-b border-gold-400/15'
+      }`}>
         <div className="flex items-center gap-3">
           <button
             onClick={() => setBusinessScreen('dashboard')}
-            className="w-8 h-8 rounded-full bg-[#181824] border border-white/10 flex items-center justify-center text-gray-300 hover:text-white"
+            className={`w-8 h-8 rounded-full flex items-center justify-center transition-all ${
+              isWhite 
+                ? 'bg-purple-50 border border-purple-200 text-purple-700 hover:bg-purple-100' 
+                : 'bg-[#14141E] border border-white/10 text-gray-300 hover:text-gold-300 hover:border-gold-400/30'
+            }`}
           >
             <ArrowLeft className="w-4 h-4" />
           </button>
           <div>
-            <h2 className="font-heading text-base font-bold text-white">
+            <h2 className={`font-heading text-base font-black ${isWhite ? 'text-gray-900' : 'text-white'}`}>
               Shop Settings & Operations
             </h2>
-            <p className="text-[10px] text-gold-400">Location, Country Currency & Branding</p>
+            <p className={`text-[10px] font-bold ${isWhite ? 'text-purple-700' : 'text-gold-300'}`}>
+              Location, Country Currency & Branding
+            </p>
           </div>
         </div>
       </div>
 
       <div className="px-4 pt-4 space-y-4">
+        {/* Appearance & Theme Setting Card */}
+        <div className={`p-4 rounded-3xl border shadow-sm ${
+          isWhite ? 'bg-white border-purple-100 shadow-[0_2px_12px_rgba(126,34,206,0.06)]' : 'glass-card-obsidian border-white/10'
+        }`}>
+          <h3 className={`font-heading text-xs font-black uppercase tracking-widest flex items-center gap-1.5 mb-3 ${
+            isWhite ? 'text-gray-800' : 'text-white'
+          }`}>
+            <Sparkles className={`w-4 h-4 ${isWhite ? 'text-purple-600' : 'text-purple-400'}`} />
+            Appearance & Theme
+          </h3>
+          <p className={`text-[11px] font-medium mb-3 ${isWhite ? 'text-gray-600' : 'text-gray-400'}`}>
+            Switch between Obsidian Gold (Dark) and Crisp Lavender (White) for salon partner views and dashboards.
+          </p>
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={() => setTheme('white')}
+              className={`p-3 rounded-2xl border text-left transition-all flex items-center justify-between ${
+                theme === 'white'
+                  ? 'border-purple-600 bg-purple-50 text-purple-900 shadow-sm ring-1 ring-purple-400'
+                  : isWhite 
+                    ? 'border-gray-200 bg-gray-50 text-gray-600' 
+                    : 'border-white/10 bg-[#161622] text-gray-400 hover:border-white/20'
+              }`}
+            >
+              <div className="flex items-center gap-2">
+                <span className="text-base">⚪</span>
+                <div>
+                  <div className={`text-xs font-black ${isWhite ? 'text-gray-900' : 'text-white'}`}>White</div>
+                  <div className="text-[10px] text-purple-700 font-medium">Clean & Purple</div>
+                </div>
+              </div>
+              <span className="text-xs font-bold text-purple-600">{theme === 'white' ? '◉' : '○'}</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setTheme('dark')}
+              className={`p-3 rounded-2xl border text-left transition-all flex items-center justify-between ${
+                theme === 'dark'
+                  ? 'border-gold-400 bg-gold-400/15 text-gold-300 shadow-sm ring-1 ring-gold-400'
+                  : isWhite 
+                    ? 'border-gray-200 bg-gray-50 text-gray-600' 
+                    : 'border-white/10 bg-[#161622] text-gray-400 hover:border-white/20'
+              }`}
+            >
+              <div className="flex items-center gap-2">
+                <span className="text-base">🌙</span>
+                <div>
+                  <div className={`text-xs font-black ${isWhite ? 'text-gray-900' : 'text-white'}`}>Dark</div>
+                  <div className="text-[10px] text-amber-500 font-medium">Obsidian Gold</div>
+                </div>
+              </div>
+              <span className="text-xs font-bold text-gold-400">{theme === 'dark' ? '◉' : '○'}</span>
+            </button>
+          </div>
+        </div>
+
         {/* Salon Branding & Image Management */}
-        <div className="glass-card p-4 rounded-3xl border border-white/10 space-y-4">
-          <h3 className="font-heading text-xs font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
-            <ImageIcon className="w-4 h-4 text-gold-400" />
+        <div className={`p-4 rounded-3xl border space-y-4 shadow-sm ${
+          isWhite ? 'bg-white border-purple-100 shadow-[0_2px_12px_rgba(126,34,206,0.06)]' : 'glass-card-obsidian border-white/10'
+        }`}>
+          <h3 className={`font-heading text-xs font-black uppercase tracking-widest flex items-center gap-1.5 ${
+            isWhite ? 'text-gray-800' : 'text-white'
+          }`}>
+            <ImageIcon className={`w-4 h-4 ${isWhite ? 'text-purple-600' : 'text-gold-400'}`} />
             Salon Logo & Cover Banner
           </h3>
 
@@ -633,57 +760,52 @@ export const ShopSettingsScreen: React.FC = () => {
           </div>
         </div>
 
-        {/* Business Location & Country Currency Settings (Faithful to User Request) */}
+        {/* Business Location & Country Currency Settings */}
         <div className="glass-card p-4 rounded-3xl border border-gold-400/30 space-y-3 text-xs">
           <div className="flex items-center justify-between">
             <h3 className="font-heading text-xs font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
               <Globe className="w-4 h-4 text-gold-400" />
-              Location & Payment Settlement Currency
+              Salon Country & Settlement Currency
             </h3>
-            <button
-              type="button"
-              onClick={handleFetchCurrentGps}
-              className="text-[10px] text-gold-400 hover:underline font-bold flex items-center gap-1"
-            >
-              <Navigation className="w-3 h-3" />
-              <span>Allow GPS Location</span>
-            </button>
+            <span className="text-[10px] text-emerald-400 font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20">
+              Permanent Shop Record
+            </span>
           </div>
 
           <div className="p-3 bg-[#12121A] rounded-xl border border-white/5 space-y-2">
             <div className="flex items-center justify-between">
-              <span className="text-gray-400">Current Business Location:</span>
-              <span className="font-bold text-gold-300">{userLocation}</span>
+              <span className="text-gray-400">Shop Address & City:</span>
+              <span className="font-bold text-gold-300">{address ? `${address}, ${city}` : (city || 'Downtown Dubai')}</span>
             </div>
             <div className="flex items-center justify-between">
               <span className="text-gray-400">Active Settlement Currency:</span>
               <span className="font-bold text-white flex items-center gap-1">
-                <span>{currency.flag}</span>
-                <span>{currency.name} ({currency.symbol} {currency.code})</span>
+                <span>{getCountryByCode(shopCountryCode).flag}</span>
+                <span>{getCountryByCode(shopCountryCode).currencyName} ({getCountryByCode(shopCountryCode).currencySymbol} {getCountryByCode(shopCountryCode).currencyCode})</span>
               </span>
             </div>
           </div>
 
           <div>
             <label className="block text-gray-300 mb-1.5 font-semibold">
-              Select Salon Operating Currency:
+              Select Salon Country & Settlement Currency:
             </label>
             <div className="grid grid-cols-2 gap-2">
-              {supportedCurrencies.map(c => (
+              {supportedCountries.map(c => (
                 <button
                   key={c.code}
                   type="button"
-                  onClick={() => setCurrency(c)}
+                  onClick={() => setShopCountryCode(c.code)}
                   className={`p-2.5 rounded-xl border text-left flex items-center gap-2 transition-all ${
-                    currency.code === c.code
-                      ? 'bg-gold-400/15 border-gold-400 text-gold-300 font-bold'
+                    shopCountryCode === c.code
+                      ? 'bg-gold-400/15 border-gold-400 text-gold-300 font-bold shadow-sm'
                       : 'bg-[#181824] border-white/5 text-gray-300 hover:border-gold-400/30'
                   }`}
                 >
                   <span className="text-base">{c.flag}</span>
                   <div>
-                    <span className="block text-xs font-bold">{c.code} ({c.symbol})</span>
-                    <span className="text-[9px] text-gray-400 block">{c.country}</span>
+                    <span className="block text-xs font-bold">{c.name}</span>
+                    <span className="text-[9px] text-gray-400 block">{c.currencyCode} ({c.currencySymbol}) • {c.phoneCountryCode}</span>
                   </div>
                 </button>
               ))}
@@ -970,14 +1092,18 @@ export const ShopSettingsScreen: React.FC = () => {
                 />
               </div>
               <div>
-                <label className="block text-gray-300 mb-1">Country</label>
-                <input
-                  type="text"
-                  value={country}
-                  onChange={e => setCountry(e.target.value)}
-                  placeholder="Enter country..."
-                  className="w-full bg-[#181824] border border-[#2B2B3E] rounded-xl px-3 py-2 text-white placeholder-gray-500"
-                />
+                <label className="block text-gray-300 mb-1">Country & Currency</label>
+                <select
+                  value={shopCountryCode}
+                  onChange={e => setShopCountryCode(e.target.value)}
+                  className="w-full bg-[#181824] border border-[#2B2B3E] focus:border-gold-400 rounded-xl px-3 py-2 text-white outline-none cursor-pointer text-xs"
+                >
+                  {supportedCountries.map(c => (
+                    <option key={c.code} value={c.code} className="bg-[#181824] text-white">
+                      {c.flag} {c.name} ({c.currencyCode})
+                    </option>
+                  ))}
+                </select>
               </div>
             </div>
 
@@ -1001,7 +1127,7 @@ export const ShopSettingsScreen: React.FC = () => {
                 <input
                   type="url"
                   value={googleMapsUrl}
-                  onChange={e => setGoogleMapsUrl(e.target.value)}
+                  onChange={e => handleGoogleMapsUrlChange(e.target.value)}
                   placeholder="https://maps.google.com/?q=..."
                   className="w-full bg-[#181824] border border-[#2B2B3E] rounded-xl pl-3 pr-20 py-2 text-white"
                 />
@@ -1017,6 +1143,12 @@ export const ShopSettingsScreen: React.FC = () => {
                   </a>
                 )}
               </div>
+              {detectedGeoBadge && (
+                <div className="mt-1.5 px-2.5 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-[10px] flex items-center gap-1.5 font-mono">
+                  <CheckCircle2 className="w-3 h-3 shrink-0 text-emerald-400" />
+                  <span>{detectedGeoBadge}</span>
+                </div>
+              )}
             </div>
           </div>
 
@@ -1076,6 +1208,54 @@ export const ShopSettingsScreen: React.FC = () => {
                 onChange={e => setWhatsappNotifs(e.target.checked)}
                 className="w-4 h-4 accent-gold-400"
               />
+            </div>
+          </div>
+
+          {/* Appearance & App Theme (White vs Dark Mode) */}
+          <div className="glass-card p-4 rounded-3xl border border-white/10 space-y-3 text-xs">
+            <h3 className="font-heading text-xs font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
+              <Sparkles className="w-3.5 h-3.5 text-purple-400" />
+              <span>Appearance</span>
+            </h3>
+
+            <div className="grid grid-cols-2 gap-2.5">
+              <button
+                type="button"
+                onClick={() => setTheme('white')}
+                className={`p-3 rounded-2xl border text-left transition-all flex items-center justify-between ${
+                  theme === 'white'
+                    ? 'border-purple-500 bg-purple-500/15 text-purple-300 shadow-sm ring-1 ring-purple-400'
+                    : 'border-white/10 bg-[#161622] text-gray-400 hover:border-white/20'
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <span className="text-base">⚪</span>
+                  <div>
+                    <div className="text-xs font-bold text-white">White</div>
+                    <div className="text-[10px] text-gray-400">Clean & Purple</div>
+                  </div>
+                </div>
+                <span className="text-xs font-bold text-purple-400">{theme === 'white' ? '◉' : '○'}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setTheme('dark')}
+                className={`p-3 rounded-2xl border text-left transition-all flex items-center justify-between ${
+                  theme === 'dark'
+                    ? 'border-gold-400 bg-gold-400/15 text-gold-300 shadow-sm ring-1 ring-gold-400'
+                    : 'border-white/10 bg-[#161622] text-gray-400 hover:border-white/20'
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <span className="text-base">🌙</span>
+                  <div>
+                    <div className="text-xs font-bold text-white">Dark</div>
+                    <div className="text-[10px] text-gray-400">Obsidian Gold</div>
+                  </div>
+                </div>
+                <span className="text-xs font-bold text-gold-400">{theme === 'dark' ? '◉' : '○'}</span>
+              </button>
             </div>
           </div>
 

@@ -16,80 +16,105 @@ import {
 // Realtime & Supabase Data Service for ALGO Saloon Spot
 // ============================================================================
 
+import { resolveCountryFromCoordinates } from '../utils/geoUtils';
+
 // Transform database row to BusinessShop
-export const mapShopFromDB = (row: any): BusinessShop => ({
-  id: row.id,
-  ownerId: row.owner_id || undefined,
-  name: row.name,
-  ownerName: row.owner_name || '',
-  phone: row.phone || '',
-  email: row.email || '',
-  address: row.address || '',
-  city: row.city || '',
-  country: row.country || 'India',
-  businessType: row.business_type || ['Salon', 'Barber'],
-  staffCount: row.staff_count || 5,
-  openingTime: row.opening_time || '09:00 AM',
-  closingTime: row.closing_time || '09:00 PM',
-  workingDays: row.working_days || ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
-  rating: Number(row.rating) || 4.9,
-  reviewCount: Number(row.review_count) || 0,
-  distance: row.distance || '1.2 km',
-  image: row.image || 'https://images.unsplash.com/photo-1585747860715-2ba37e788b70?w=600&auto=format&fit=crop&q=80',
-  bannerImage: row.banner_image || undefined,
-  bannerVideoUrl: row.banner_video_url || undefined,
-  promoVideos: Array.isArray(row.promo_videos) ? row.promo_videos : [],
-  galleryImages: Array.isArray(row.gallery_images) ? row.gallery_images : [],
-  isOpen: row.is_open ?? true,
-  tradeLicenseNo: row.trade_license_no || '',
-  taxVatNo: row.tax_vat_no || undefined,
-  tradeLicenseDocumentUrl: row.trade_license_doc_url || undefined,
-  taxVatDocumentUrl: row.tax_vat_doc_url || undefined,
-  isVerified: row.is_verified ?? true,
-  googleMapsUrl: row.google_maps_url || undefined,
-  latitude: Number(row.latitude) || (row.city === 'Dubai' ? 25.2048 : 13.0827),
-  longitude: Number(row.longitude) || (row.city === 'Dubai' ? 55.2708 : 80.2707),
-  priceTier: (row.price_tier as any) || 'budget',
-  avgPrice: Number(row.avg_price) || 250
-});
+export const mapShopFromDB = (row: any): BusinessShop => {
+  const isUae = row.country === 'United Arab Emirates' || row.city === 'Dubai' || row.country_code === 'AE';
+  const lat = Number(row.latitude) || (isUae ? 25.2048 : 13.0827);
+  const lng = Number(row.longitude) || (isUae ? 55.2708 : 80.2707);
+  const resolvedCountry = resolveCountryFromCoordinates(lat, lng);
+
+  return {
+    id: row.id,
+    ownerId: row.owner_id || undefined,
+    name: row.name,
+    ownerName: row.owner_name || '',
+    phone: row.phone || '',
+    email: row.email || '',
+    address: row.address || '',
+    city: row.city || resolvedCountry.defaultCity,
+    country: row.country || resolvedCountry.name,
+    countryCode: row.country_code || resolvedCountry.code,
+    currency: row.currency || resolvedCountry.currencyCode,
+    currencySymbol: row.currency_symbol || resolvedCountry.currencySymbol,
+    phoneCountryCode: row.phone_country_code || resolvedCountry.phoneCountryCode,
+    businessType: row.business_type || ['Salon', 'Barber'],
+    staffCount: row.staff_count || 5,
+    openingTime: row.opening_time || '09:00 AM',
+    closingTime: row.closing_time || '09:00 PM',
+    workingDays: row.working_days || ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+    rating: Number(row.rating) || 4.9,
+    reviewCount: Number(row.review_count) || 0,
+    distance: row.distance || '1.2 km',
+    image: row.image || 'https://images.unsplash.com/photo-1585747860715-2ba37e788b70?w=600&auto=format&fit=crop&q=80',
+    bannerImage: row.banner_image || undefined,
+    bannerVideoUrl: row.banner_video_url || undefined,
+    promoVideos: Array.isArray(row.promo_videos) ? row.promo_videos : [],
+    galleryImages: Array.isArray(row.gallery_images) ? row.gallery_images : [],
+    isOpen: row.is_open ?? true,
+    tradeLicenseNo: row.trade_license_no || '',
+    taxVatNo: row.tax_vat_no || undefined,
+    tradeLicenseDocumentUrl: row.trade_license_doc_url || undefined,
+    taxVatDocumentUrl: row.tax_vat_doc_url || undefined,
+    isVerified: row.is_verified ?? true,
+    googleMapsUrl: row.google_maps_url || undefined,
+    googlePlaceId: row.google_place_id || undefined,
+    latitude: lat,
+    longitude: lng,
+    priceTier: (row.price_tier as any) || 'budget',
+    avgPrice: Number(row.avg_price) || (isUae ? 150 : 250)
+  };
+};
 
 // Transform BusinessShop to database row
-export const mapShopToDB = (shop: BusinessShop) => ({
-  id: shop.id,
-  owner_id: shop.ownerId,
-  name: shop.name,
-  owner_name: shop.ownerName,
-  phone: shop.phone,
-  email: shop.email,
-  address: shop.address,
-  city: shop.city,
-  country: shop.country,
-  business_type: shop.businessType,
-  staff_count: shop.staffCount,
-  opening_time: shop.openingTime,
-  closing_time: shop.closingTime,
-  working_days: shop.workingDays,
-  rating: shop.rating,
-  review_count: shop.reviewCount,
-  distance: shop.distance,
-  image: shop.image,
-  banner_image: shop.bannerImage,
-  banner_video_url: shop.bannerVideoUrl,
-  promo_videos: shop.promoVideos || [],
-  gallery_images: shop.galleryImages || [],
-  is_open: shop.isOpen,
-  trade_license_no: shop.tradeLicenseNo,
-  tax_vat_no: shop.taxVatNo,
-  trade_license_doc_url: shop.tradeLicenseDocumentUrl,
-  tax_vat_doc_url: shop.taxVatDocumentUrl,
-  is_verified: shop.isVerified,
-  google_maps_url: shop.googleMapsUrl,
-  latitude: shop.latitude || 13.0827,
-  longitude: shop.longitude || 80.2707,
-  price_tier: shop.priceTier || 'budget',
-  avg_price: shop.avgPrice || 250,
-  updated_at: new Date().toISOString()
-});
+export const mapShopToDB = (shop: BusinessShop) => {
+  const lat = shop.latitude || (shop.country === 'United Arab Emirates' || shop.city === 'Dubai' ? 25.2048 : 13.0827);
+  const lng = shop.longitude || (shop.country === 'United Arab Emirates' || shop.city === 'Dubai' ? 55.2708 : 80.2707);
+  const resolvedCountry = resolveCountryFromCoordinates(lat, lng);
+
+  return {
+    id: shop.id,
+    owner_id: shop.ownerId,
+    name: shop.name,
+    owner_name: shop.ownerName,
+    phone: shop.phone,
+    email: shop.email,
+    address: shop.address,
+    city: shop.city || resolvedCountry.defaultCity,
+    country: shop.country || resolvedCountry.name,
+    country_code: shop.countryCode || resolvedCountry.code,
+    currency: shop.currency || resolvedCountry.currencyCode,
+    currency_symbol: shop.currencySymbol || resolvedCountry.currencySymbol,
+    phone_country_code: shop.phoneCountryCode || resolvedCountry.phoneCountryCode,
+    business_type: shop.businessType,
+    staff_count: shop.staffCount,
+    opening_time: shop.openingTime,
+    closing_time: shop.closingTime,
+    working_days: shop.workingDays,
+    rating: shop.rating,
+    review_count: shop.reviewCount,
+    distance: shop.distance,
+    image: shop.image,
+    banner_image: shop.bannerImage,
+    banner_video_url: shop.bannerVideoUrl,
+    promo_videos: shop.promoVideos || [],
+    gallery_images: shop.galleryImages || [],
+    is_open: shop.isOpen,
+    trade_license_no: shop.tradeLicenseNo,
+    tax_vat_no: shop.taxVatNo,
+    trade_license_doc_url: shop.tradeLicenseDocumentUrl,
+    tax_vat_doc_url: shop.taxVatDocumentUrl,
+    is_verified: shop.isVerified,
+    google_maps_url: shop.googleMapsUrl,
+    google_place_id: shop.googlePlaceId || null,
+    latitude: lat,
+    longitude: lng,
+    price_tier: shop.priceTier || 'budget',
+    avg_price: shop.avgPrice || 250,
+    updated_at: new Date().toISOString()
+  };
+};
 
 // Transform database row to Stylist
 export const mapStylistFromDB = (row: any): Stylist => ({

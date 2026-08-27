@@ -52,6 +52,34 @@ export interface CurrencyInfo {
   rateFromINR: number;
   country: string;
   flag: string;
+  countryCode?: string;
+  phoneCountryCode?: string;
+}
+
+export interface CountryInfo {
+  code: string; // 'AE' | 'IN' | 'US' | 'GB' | 'SA' | 'SG' | 'CA' | 'AU' | 'QA' | 'KW' | 'OM' | 'BH' | 'MY' | 'JP' | 'EU'
+  name: string;
+  currencyCode: string;
+  currencySymbol: string;
+  currencyName: string;
+  phoneCountryCode: string; // '+971', '+91', '+1', '+44', etc.
+  flag: string;
+  defaultCity: string;
+  defaultLat: number;
+  defaultLng: number;
+}
+
+export interface CustomerLocationData {
+  address: string;
+  city: string;
+  countryCode: string;
+  countryName: string;
+  currencyCode: string;
+  currencySymbol: string;
+  phoneCountryCode: string;
+  latitude?: number;
+  longitude?: number;
+  isGpsAllowed?: boolean;
 }
 
 export interface CustomerProfile {
@@ -64,6 +92,13 @@ export interface CustomerProfile {
   savedAddresses: string[];
   authProvider?: 'google' | 'password';
   isVerified?: boolean;
+  countryCode?: string;
+  countryName?: string;
+  currencyCode?: string;
+  currencySymbol?: string;
+  phoneCountryCode?: string;
+  latitude?: number;
+  longitude?: number;
 }
 
 export interface BusinessShop {
@@ -76,6 +111,10 @@ export interface BusinessShop {
   address: string;
   city: string;
   country: string;
+  countryCode?: string; // 'AE' | 'IN' | 'US' | etc.
+  currency?: string; // 'AED' | 'INR' | 'USD' | 'SAR' | etc.
+  currencySymbol?: string; // 'AED' | '₹' | '$' | 'SAR' | etc.
+  phoneCountryCode?: string; // '+971' | '+91' | '+1' | etc.
   businessType: ('Salon' | 'Barber' | 'Beauty' | 'Spa' | 'Unisex')[];
   staffCount: number;
   openingTime: string;
@@ -96,6 +135,7 @@ export interface BusinessShop {
   taxVatDocumentUrl?: string; // Uploaded Tax / GST / Others Doc
   isVerified: boolean;
   googleMapsUrl?: string; // Google Maps URL link for navigation
+  googlePlaceId?: string; // Google Place ID identifier
   latitude?: number;
   longitude?: number;
   priceTier?: 'budget' | 'premium' | 'vip'; // Price categorization (Low Price, Premium, VIP)

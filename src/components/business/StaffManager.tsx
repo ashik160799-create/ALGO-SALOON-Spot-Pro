@@ -79,13 +79,13 @@ export const StaffManager: React.FC = () => {
   };
 
   return (
-    <div className="min-h-full pb-24 bg-[#0A0A0F] text-white">
+    <div className="min-h-full pb-24 bg-[#08080C] text-[#F3F4F6] font-body">
       {/* Top Header */}
-      <div className="sticky top-0 z-30 bg-[#0A0A0F]/95 backdrop-blur-md px-4 py-3 border-b border-white/5 flex items-center justify-between">
+      <div className="sticky top-0 z-30 bg-[#0A0A10]/95 backdrop-blur-xl px-4 py-3 border-b border-gold-400/15 flex items-center justify-between shadow-sm">
         <div className="flex items-center gap-3">
           <button
             onClick={() => setBusinessScreen('dashboard')}
-            className="w-8 h-8 rounded-full bg-[#181824] border border-white/10 flex items-center justify-center text-gray-300 hover:text-white"
+            className="w-8 h-8 rounded-full bg-[#14141E] border border-white/10 flex items-center justify-center text-gray-300 hover:text-gold-300 hover:border-gold-400/30 transition-all"
           >
             <ArrowLeft className="w-4 h-4" />
           </button>
@@ -93,13 +93,13 @@ export const StaffManager: React.FC = () => {
             <h2 className="font-heading text-base font-bold text-white">
               Staff & Stylist Roster
             </h2>
-            <p className="text-[10px] text-gold-400">{stylists.length} Active Stylists</p>
+            <p className="text-[10px] text-gold-300 font-semibold">{stylists.length} Active Stylists</p>
           </div>
         </div>
 
         <button
           onClick={() => setShowAddModal(true)}
-          className="gold-gradient-btn px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1 shadow-sm"
+          className="gold-gradient-btn px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1 shadow-sm hover:brightness-110 active:scale-95"
         >
           <Plus className="w-3.5 h-3.5" />
           <span>Add Staff</span>
@@ -109,8 +109,8 @@ export const StaffManager: React.FC = () => {
       {/* Stylists List */}
       <div className="px-4 pt-4 space-y-3">
         {stylists.length === 0 ? (
-          <div className="glass-card p-8 rounded-3xl text-center space-y-3 my-4 border border-white/5">
-            <div className="w-12 h-12 rounded-full bg-gold-400/10 border border-gold-400/30 flex items-center justify-center mx-auto text-gold-400">
+          <div className="glass-card-obsidian p-8 rounded-3xl text-center space-y-3 my-4 border border-white/10">
+            <div className="w-12 h-12 rounded-full bg-gold-400/10 border border-gold-400/30 flex items-center justify-center mx-auto text-gold-400 shadow-sm">
               <UserCheck className="w-6 h-6" />
             </div>
             <h3 className="font-heading text-sm font-bold text-white">No Stylists on Roster</h3>
@@ -129,18 +129,18 @@ export const StaffManager: React.FC = () => {
           stylists.map(stylist => (
             <div
               key={stylist.id}
-              className="glass-card p-4 rounded-2xl border border-white/10 flex items-center justify-between gap-3 hover:border-gold-400/30 transition-all"
+              className="glass-card-obsidian p-4 rounded-2xl border border-white/10 flex items-center justify-between gap-3 hover:border-gold-400/40 transition-all shadow-sm"
             >
             <div className="flex items-center gap-3">
               <div className="relative">
-                <div className="w-14 h-14 rounded-full overflow-hidden border-2 border-gold-400/40 shrink-0">
+                <div className="w-14 h-14 rounded-full overflow-hidden border-2 border-gold-400/40 shrink-0 shadow-sm">
                   <img
                     src={stylist.avatar}
                     alt={stylist.name}
                     className="w-full h-full object-cover"
                   />
                 </div>
-                <span className={`absolute bottom-0 right-0 w-3.5 h-3.5 rounded-full border-2 border-black ${
+                <span className={`absolute bottom-0 right-0 w-3.5 h-3.5 rounded-full border-2 border-black shadow-sm ${
                   stylist.isAvailable ? 'bg-emerald-400' : 'bg-gray-500'
                 }`} />
               </div>
@@ -153,8 +153,8 @@ export const StaffManager: React.FC = () => {
                   {stylist.role}
                 </p>
                 <div className="flex items-center gap-2 mt-1 text-[10px]">
-                  <span className="flex items-center gap-1 text-emerald-400 font-bold bg-emerald-500/10 px-1.5 py-0.2 rounded">
-                    <Star className="w-2.5 h-2.5 fill-emerald-400" />
+                  <span className="flex items-center gap-1 text-amber-300 font-bold bg-amber-400/15 px-1.5 py-0.2 rounded shadow-sm">
+                    <Star className="w-2.5 h-2.5 fill-amber-400 text-amber-400" />
                     {stylist.rating} ({stylist.reviewCount})
                   </span>
                   <span className="text-gold-300 font-medium">{stylist.experience}</span>
@@ -165,10 +165,10 @@ export const StaffManager: React.FC = () => {
             <div className="flex items-center gap-1.5">
               <button
                 onClick={() => toggleAvailability(stylist)}
-                className={`p-2 rounded-xl border text-xs font-semibold transition-colors ${
+                className={`p-2 rounded-xl border text-xs font-semibold transition-all shadow-sm ${
                   stylist.isAvailable
-                    ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
-                    : 'bg-gray-800 border-gray-700 text-gray-400'
+                    ? 'bg-emerald-500/15 border-emerald-500/35 text-emerald-300'
+                    : 'bg-[#14141E] border-white/10 text-gray-400'
                 }`}
                 title={stylist.isAvailable ? 'On Duty' : 'Off Duty'}
               >
@@ -177,7 +177,7 @@ export const StaffManager: React.FC = () => {
 
               <button
                 onClick={() => deleteStylist(stylist.id)}
-                className="p-2 rounded-xl bg-[#181824] border border-white/10 text-gray-400 hover:text-red-400 transition-colors"
+                className="p-2 rounded-xl bg-[#14141E] border border-white/10 text-gray-400 hover:text-red-400 hover:border-red-500/30 transition-all shadow-sm"
                 title="Remove staff"
               >
                 <Trash2 className="w-3.5 h-3.5" />

@@ -208,7 +208,7 @@ export const ServicesManager: React.FC = () => {
               resetForm();
               setShowAddModal(true);
             }}
-            className="gold-gradient-btn px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1 shadow-sm"
+            className="gold-gradient-btn px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1 shadow-sm hover:brightness-110 active:scale-95"
           >
             <Plus className="w-3.5 h-3.5" />
             <span>Add Service</span>
@@ -217,14 +217,14 @@ export const ServicesManager: React.FC = () => {
       </div>
 
       <div className="px-4 pt-4 space-y-4">
-        {/* Bulk Discount Promotion Campaign Banner (Faithful to User Request 4) */}
-        <div className="bg-gradient-to-r from-[#281F0E] via-[#1E1B26] to-[#12121A] p-4 rounded-3xl border border-gold-400/40 shadow-gold-sm space-y-3">
+        {/* Bulk Discount Promotion Campaign Banner */}
+        <div className="glass-card-gilded p-4 rounded-3xl border border-gold-400/40 shadow-gold-sm space-y-3">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2 text-gold-300 font-bold text-xs">
+            <div className="flex items-center gap-2 text-gold-300 font-bold text-xs font-heading">
               <Zap className="w-4 h-4 text-gold-400" />
               <span>Bulk Service Discount Campaign</span>
             </div>
-            <span className="text-[10px] bg-gold-400 text-black font-extrabold px-2 py-0.5 rounded-full">
+            <span className="text-[10px] bg-gold-400 text-black font-extrabold px-2 py-0.5 rounded-full font-heading">
               PROMOTIONAL
             </span>
           </div>
@@ -242,7 +242,7 @@ export const ServicesManager: React.FC = () => {
                 className={`flex-1 py-1.5 rounded-xl text-xs font-bold border transition-all ${
                   bulkPercent === pct
                     ? 'bg-gold-400 text-black border-gold-400 shadow-sm'
-                    : 'bg-[#181824] text-gray-300 border-white/10'
+                    : 'bg-[#14141E] text-gray-300 border-white/10 hover:border-gold-400/30'
                 }`}
               >
                 {pct}% OFF
@@ -253,7 +253,7 @@ export const ServicesManager: React.FC = () => {
           <div className="flex gap-2 pt-1">
             <button
               onClick={handleApplyBulk}
-              className="flex-1 gold-gradient-btn py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 shadow-md"
+              className="flex-1 gold-gradient-btn py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 shadow-md hover:brightness-110 active:scale-95"
             >
               <Tag className="w-3.5 h-3.5" />
               <span>Apply {bulkPercent}% to ALL Services</span>
@@ -261,7 +261,7 @@ export const ServicesManager: React.FC = () => {
 
             <button
               onClick={handleClearDiscounts}
-              className="px-3 py-2.5 rounded-xl bg-[#241416] text-red-400 border border-red-500/30 text-xs font-semibold hover:bg-red-500/20"
+              className="px-3 py-2.5 rounded-xl bg-[#241416] text-red-400 border border-red-500/30 text-xs font-semibold hover:bg-red-500/20 transition-colors"
             >
               Reset
             </button>
@@ -271,8 +271,8 @@ export const ServicesManager: React.FC = () => {
         {/* Services List with Discount Display */}
         <div className="space-y-3">
           {services.length === 0 ? (
-            <div className="glass-card p-8 rounded-3xl text-center space-y-3 my-4 border border-white/5">
-              <div className="w-12 h-12 rounded-full bg-gold-400/10 border border-gold-400/30 flex items-center justify-center mx-auto text-gold-400">
+            <div className="glass-card-obsidian p-8 rounded-3xl text-center space-y-3 my-4 border border-white/10">
+              <div className="w-12 h-12 rounded-full bg-gold-400/10 border border-gold-400/30 flex items-center justify-center mx-auto text-gold-400 shadow-sm">
                 <Scissors className="w-6 h-6" />
               </div>
               <h3 className="font-heading text-sm font-bold text-white">No Services in Catalog Yet</h3>
@@ -299,16 +299,16 @@ export const ServicesManager: React.FC = () => {
             services.map(service => (
               <div
                 key={service.id}
-                className="glass-card p-3.5 rounded-2xl border border-white/10 flex items-center justify-between gap-3 hover:border-gold-400/30 transition-all"
+                className="glass-card-obsidian p-3.5 rounded-2xl border border-white/10 flex items-center justify-between gap-3 hover:border-gold-400/40 transition-all shadow-sm"
               >
-              <div className="w-14 h-14 rounded-xl overflow-hidden border border-gold-400/20 shrink-0 relative">
+              <div className="w-14 h-14 rounded-xl overflow-hidden border border-gold-400/25 shrink-0 relative shadow-sm">
                 <img
                   src={service.image}
                   alt={service.name}
                   className="w-full h-full object-cover"
                 />
                 {service.discountPercent && (
-                  <span className="absolute top-1 left-1 bg-red-500 text-white text-[8px] font-black px-1 rounded">
+                  <span className="absolute top-1 left-1 bg-red-500 text-white text-[8px] font-black px-1 rounded shadow-sm">
                     {service.discountPercent}% OFF
                   </span>
                 )}
@@ -316,7 +316,7 @@ export const ServicesManager: React.FC = () => {
 
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
-                  <span className="text-[9px] px-1.5 py-0.2 rounded bg-gold-400/10 text-gold-400 font-bold border border-gold-400/20">
+                  <span className="text-[9px] px-1.5 py-0.2 rounded bg-gold-400/10 text-gold-300 font-bold border border-gold-400/20">
                     {service.category}
                   </span>
                   <h3 className="font-heading text-xs font-bold text-white truncate">
@@ -327,14 +327,14 @@ export const ServicesManager: React.FC = () => {
                   {service.description}
                 </p>
                 <div className="flex items-center gap-2 mt-1 text-xs">
-                  <span className="font-bold text-gold-400">₹{service.price}</span>
+                  <span className="font-bold text-gold-300 font-heading">₹{service.price}</span>
                   {service.originalPrice && (
                     <span className="line-through text-gray-500 text-[11px]">
                       ₹{service.originalPrice}
                     </span>
                   )}
-                  <span className="text-gray-500 text-[10px] flex items-center gap-1">
-                    <Clock className="w-3 h-3 text-gray-400" />
+                  <span className="text-gray-400 text-[10px] flex items-center gap-1">
+                    <Clock className="w-3 h-3 text-gold-400" />
                     {service.durationMinutes} mins
                   </span>
                 </div>
@@ -343,7 +343,7 @@ export const ServicesManager: React.FC = () => {
               <div className="flex items-center gap-1">
                 <button
                   onClick={() => openEdit(service)}
-                  className="w-8 h-8 rounded-lg bg-[#181824] border border-white/10 text-gray-300 hover:text-gold-400 flex items-center justify-center transition-colors"
+                  className="w-8 h-8 rounded-lg bg-[#14141E] border border-white/10 text-gray-300 hover:text-gold-300 hover:border-gold-400/30 flex items-center justify-center transition-all shadow-sm"
                   title="Edit service & discounts"
                 >
                   <Edit3 className="w-3.5 h-3.5" />

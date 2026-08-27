@@ -73,13 +73,13 @@ export const InventoryManager: React.FC = () => {
   };
 
   return (
-    <div className="min-h-full pb-24 bg-[#0A0A0F] text-white">
+    <div className="min-h-full pb-24 bg-[#08080C] text-[#F3F4F6] font-body">
       {/* Header */}
-      <div className="sticky top-0 z-30 bg-[#0A0A0F]/95 backdrop-blur-md px-4 py-3 border-b border-white/5 flex items-center justify-between">
+      <div className="sticky top-0 z-30 bg-[#0A0A10]/95 backdrop-blur-xl px-4 py-3 border-b border-gold-400/15 flex items-center justify-between shadow-sm">
         <div className="flex items-center gap-3">
           <button
             onClick={() => setBusinessScreen('dashboard')}
-            className="w-8 h-8 rounded-full bg-[#181824] border border-white/10 flex items-center justify-center text-gray-300 hover:text-white"
+            className="w-8 h-8 rounded-full bg-[#14141E] border border-white/10 flex items-center justify-center text-gray-300 hover:text-gold-300 hover:border-gold-400/30 transition-all"
           >
             <ArrowLeft className="w-4 h-4" />
           </button>
@@ -87,23 +87,23 @@ export const InventoryManager: React.FC = () => {
             <h2 className="font-heading text-base font-bold text-white">
               Salon Stock & Inventory
             </h2>
-            <p className="text-[10px] text-gold-400">Supplies & Retail Products ({currency.code})</p>
+            <p className="text-[10px] text-gold-300 font-semibold">Supplies & Retail Products ({currency.code})</p>
           </div>
         </div>
 
         <div className="flex items-center gap-2">
           <button
             onClick={exportInventoryToCSV}
-            className="p-2 rounded-xl bg-[#161622] border border-white/10 hover:border-gold-400/40 text-gray-300 hover:text-gold-300 text-xs font-semibold flex items-center gap-1 transition-colors"
+            className="p-2 rounded-xl bg-[#14141E] border border-white/10 hover:border-gold-400/40 text-gray-300 hover:text-gold-300 text-xs font-semibold flex items-center gap-1 transition-all shadow-sm"
             title="Download CSV Spreadsheet"
           >
-            <Download className="w-3.5 h-3.5" />
+            <Download className="w-3.5 h-3.5 text-gold-400" />
             <span className="hidden sm:inline">Export CSV</span>
           </button>
 
           <button
             onClick={() => setShowAddModal(true)}
-            className="gold-gradient-btn px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1 shadow-sm"
+            className="gold-gradient-btn px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1 shadow-sm hover:brightness-110 active:scale-95"
           >
             <Plus className="w-3.5 h-3.5" />
             <span>Add Stock</span>
@@ -114,22 +114,22 @@ export const InventoryManager: React.FC = () => {
       <div className="px-4 pt-4 space-y-4">
         {/* Metric Summary Cards */}
         <div className="grid grid-cols-2 gap-3">
-          <div className="glass-card p-3.5 rounded-2xl border border-gold-400/30">
-            <span className="text-[10px] text-gray-400 uppercase tracking-wider block">
+          <div className="glass-card-gilded p-3.5 rounded-2xl border border-gold-400/35 shadow-gold-sm">
+            <span className="text-[10px] text-gray-400 uppercase tracking-widest block font-semibold font-heading">
               Total Stock Valuation
             </span>
-            <p className="text-lg font-black text-gold-400 font-heading mt-1">
+            <p className="text-lg font-black text-gold-300 font-heading mt-1">
               {formatPrice(totalStockValue)}
             </p>
             <span className="text-[10px] text-gray-400 mt-0.5 block">{inventory.length} Product SKUs</span>
           </div>
 
-          <div className={`p-3.5 rounded-2xl border ${
+          <div className={`p-3.5 rounded-2xl border shadow-sm transition-all ${
             lowStockItems.length > 0
-              ? 'bg-red-500/10 border-red-500/30 text-red-300'
-              : 'glass-card border-white/10 text-gray-300'
+              ? 'bg-red-500/15 border-red-500/35 text-red-300'
+              : 'glass-card-obsidian border-white/10 text-gray-300'
           }`}>
-            <span className="text-[10px] uppercase tracking-wider block font-semibold">
+            <span className="text-[10px] uppercase tracking-widest block font-semibold font-heading">
               Low Stock Alerts
             </span>
             <p className="text-lg font-black font-heading mt-1 flex items-center gap-1.5">
@@ -149,7 +149,7 @@ export const InventoryManager: React.FC = () => {
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
               placeholder="Search by SKU name or brand..."
-              className="w-full bg-[#181824] border border-white/10 rounded-xl pl-10 pr-4 py-2.5 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-gold-400"
+              className="w-full bg-[#14141E] border border-white/10 focus:border-gold-400/60 rounded-xl pl-10 pr-4 py-2.5 text-xs text-white placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-gold-400/30 transition-all shadow-sm"
             />
           </div>
 
@@ -160,8 +160,8 @@ export const InventoryManager: React.FC = () => {
                 onClick={() => setSelectedCat(c)}
                 className={`px-3 py-1.5 rounded-xl text-xs whitespace-nowrap border transition-all ${
                   selectedCat === c
-                    ? 'bg-gold-400 text-black border-gold-400 font-bold'
-                    : 'bg-[#181824] text-gray-400 border-white/10'
+                    ? 'gold-gradient-btn shadow-sm'
+                    : 'bg-[#14141E] text-gray-400 border-white/10 hover:border-gold-400/30 hover:text-white'
                 }`}
               >
                 {c}
@@ -173,8 +173,8 @@ export const InventoryManager: React.FC = () => {
         {/* Stock Items List */}
         <div className="space-y-3">
           {filteredItems.length === 0 ? (
-            <div className="glass-card p-8 rounded-3xl text-center space-y-3 my-4 border border-white/5">
-              <div className="w-12 h-12 rounded-full bg-gold-400/10 border border-gold-400/30 flex items-center justify-center mx-auto text-gold-400">
+            <div className="glass-card-obsidian p-8 rounded-3xl text-center space-y-3 my-4 border border-white/10">
+              <div className="w-12 h-12 rounded-full bg-gold-400/10 border border-gold-400/30 flex items-center justify-center mx-auto text-gold-400 shadow-sm">
                 <Package className="w-6 h-6" />
               </div>
               <h3 className="font-heading text-sm font-bold text-white">No Inventory SKUs Tracked</h3>
@@ -195,10 +195,10 @@ export const InventoryManager: React.FC = () => {
             return (
               <div
                 key={item.id}
-                className={`p-4 rounded-2xl border transition-all space-y-3 ${
+                className={`p-4 rounded-2xl border transition-all space-y-3 shadow-sm ${
                   isLow
-                    ? 'bg-gradient-to-r from-[#2B1518] to-[#161622] border-red-500/40'
-                    : 'glass-card border-white/10'
+                    ? 'bg-gradient-to-r from-[#2B1518] to-[#14141E] border-red-500/40'
+                    : 'glass-card-obsidian border-white/10 hover:border-gold-400/30'
                 }`}
               >
                 <div className="flex items-start justify-between gap-3">

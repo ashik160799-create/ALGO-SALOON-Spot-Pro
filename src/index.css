@@ -6,21 +6,32 @@
   :root {
     --gold-primary: #D4AF37;
     --gold-hover: #F3BA2F;
-    --bg-dark: #08080C;
-    --card-dark: #12121A;
+    --gold-bright: #F2CA50;
+    --bg-obsidian: #08080C;
+    --bg-card: #121218;
+    --onyx-surface: #1A1A24;
+    --gilded-border: rgba(212, 175, 55, 0.22);
   }
 
   body {
     background-color: #08080C;
     color: #F3F4F6;
-    font-family: 'Plus Jakarta Sans', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    font-family: 'Manrope', 'Plus Jakarta Sans', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
 
   h1, h2, h3, h4, h5, h6, .font-heading {
-    font-family: 'Outfit', sans-serif;
+    font-family: 'Outfit', 'Playfair Display', sans-serif;
     letter-spacing: -0.01em;
+  }
+
+  .font-editorial {
+    font-family: 'Playfair Display', serif;
+  }
+
+  .font-body {
+    font-family: 'Manrope', sans-serif;
   }
 
   .pt-safe {
@@ -34,16 +45,16 @@
 
 /* Custom Luxury Scrollbar */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 5px;
+  height: 5px;
 }
 
 ::-webkit-scrollbar-track {
-  background: #0D0D14;
+  background: #09090E;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #28283C;
+  background: #242436;
   border-radius: 4px;
 }
 
@@ -51,7 +62,7 @@
   background: #D4AF37;
 }
 
-/* Hide scrollbar for tabs */
+/* Hide scrollbar */
 .no-scrollbar::-webkit-scrollbar {
   display: none;
 }
@@ -60,28 +71,48 @@
   scrollbar-width: none;
 }
 
-/* Glassmorphism & Luxury Component Utilities */
+/* Obsidian & Gilded Glassmorphism and Card Utilities */
 .glass-panel {
-  background: rgba(18, 18, 26, 0.85);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(212, 175, 55, 0.15);
+  background: rgba(16, 16, 24, 0.88);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  border: 1px solid rgba(212, 175, 55, 0.16);
 }
 
 .glass-card {
-  background: linear-gradient(180deg, rgba(24, 24, 36, 0.75) 0%, rgba(14, 14, 22, 0.92) 100%);
+  background: linear-gradient(180deg, rgba(22, 22, 32, 0.82) 0%, rgba(13, 13, 20, 0.94) 100%);
   backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.45);
+}
+
+.glass-card-obsidian {
+  background: linear-gradient(180deg, #161622 0%, #0D0D14 100%);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
   border: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.42);
+  box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.6);
 }
 
-.glass-card-gold {
-  background: linear-gradient(135deg, rgba(35, 28, 16, 0.85) 0%, rgba(18, 18, 26, 0.95) 100%);
-  backdrop-filter: blur(14px);
-  border: 1px solid rgba(212, 175, 55, 0.35);
-  box-shadow: 0 6px 24px 0 rgba(212, 175, 55, 0.15);
+.glass-card-gilded {
+  background: linear-gradient(145deg, rgba(34, 27, 15, 0.9) 0%, rgba(18, 18, 25, 0.96) 100%);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(212, 175, 55, 0.38);
+  box-shadow: 0 8px 28px -2px rgba(212, 175, 55, 0.18), 0 4px 12px rgba(0,0,0,0.5);
 }
 
+.glass-card-hover {
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.glass-card-hover:hover {
+  border-color: rgba(212, 175, 55, 0.45);
+  box-shadow: 0 12px 36px -4px rgba(212, 175, 55, 0.22), 0 8px 20px rgba(0,0,0,0.6);
+  transform: translateY(-2px);
+}
+
+/* Gilded Buttons & Interactive Controls */
 .gold-gradient-btn {
   background: linear-gradient(135deg, #F3BA2F 0%, #D4AF37 50%, #C5A028 100%);
   color: #0A0A0E;
@@ -92,7 +123,7 @@
 
 .gold-gradient-btn:hover {
   background: linear-gradient(135deg, #FFE066 0%, #E5C07B 50%, #D4AF37 100%);
-  box-shadow: 0 6px 24px rgba(212, 175, 55, 0.5);
+  box-shadow: 0 6px 24px rgba(212, 175, 55, 0.55);
   transform: translateY(-1px);
 }
 
@@ -101,9 +132,9 @@
 }
 
 .gold-outline-btn {
-  border: 1px solid #D4AF37;
+  border: 1px solid rgba(212, 175, 55, 0.6);
   color: #D4AF37;
-  background: rgba(212, 175, 55, 0.06);
+  background: rgba(212, 175, 55, 0.07);
   transition: all 0.2s ease;
 }
 
@@ -111,10 +142,29 @@
   background: rgba(212, 175, 55, 0.18);
   border-color: #F3BA2F;
   color: #F3BA2F;
+  box-shadow: 0 0 16px rgba(212, 175, 55, 0.25);
+}
+
+.gold-ghost-btn {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: #E2E8F0;
+  transition: all 0.2s ease;
+}
+.gold-ghost-btn:hover {
+  background: rgba(212, 175, 55, 0.12);
+  border-color: rgba(212, 175, 55, 0.35);
+  color: #D4AF37;
 }
 
 .gold-text-gradient {
-  background: linear-gradient(135deg, #FFF0B3 0%, #D4AF37 50%, #B8860B 100%);
+  background: linear-gradient(135deg, #FFF3CC 0%, #F2CA50 45%, #D4AF37 80%, #A87F17 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.silver-text-gradient {
+  background: linear-gradient(135deg, #FFFFFF 0%, #CBD5E1 60%, #94A3B8 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
 }
@@ -124,27 +174,28 @@
   letter-spacing: 0.05em;
 }
 
+/* Status Badges */
 .status-badge-pending {
-  background: rgba(245, 158, 11, 0.15);
-  border: 1px solid rgba(245, 158, 11, 0.4);
+  background: rgba(245, 158, 11, 0.14);
+  border: 1px solid rgba(245, 158, 11, 0.45);
   color: #FBBF24;
 }
 
 .status-badge-confirmed {
-  background: rgba(16, 185, 129, 0.15);
-  border: 1px solid rgba(16, 185, 129, 0.4);
+  background: rgba(16, 185, 129, 0.14);
+  border: 1px solid rgba(16, 185, 129, 0.45);
   color: #34D399;
 }
 
 .status-badge-completed {
-  background: rgba(59, 130, 246, 0.15);
-  border: 1px solid rgba(59, 130, 246, 0.4);
+  background: rgba(59, 130, 246, 0.14);
+  border: 1px solid rgba(59, 130, 246, 0.45);
   color: #60A5FA;
 }
 
 .status-badge-cancelled {
-  background: rgba(239, 68, 68, 0.15);
-  border: 1px solid rgba(239, 68, 68, 0.4);
+  background: rgba(239, 68, 68, 0.14);
+  border: 1px solid rgba(239, 68, 68, 0.45);
   color: #F87171;
 }
 
@@ -155,17 +206,17 @@
 }
 
 .animate-shimmer {
-  background: linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(212,175,55,0.18) 50%, rgba(255,255,255,0) 100%);
+  background: linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(212,175,55,0.2) 50%, rgba(255,255,255,0) 100%);
   background-size: 200% 100%;
   animation: shimmer 2.5s infinite;
 }
 
 @keyframes pulseGlow {
   0%, 100% {
-    box-shadow: 0 0 15px rgba(212, 175, 55, 0.2);
+    box-shadow: 0 0 14px rgba(212, 175, 55, 0.18);
   }
   50% {
-    box-shadow: 0 0 28px rgba(212, 175, 55, 0.55);
+    box-shadow: 0 0 28px rgba(212, 175, 55, 0.5);
   }
 }
 
@@ -180,4 +231,97 @@
 
 .animate-spin-slow {
   animation: spinSlow 12s linear infinite;
+}
+
+/* ============================================================
+   WHITE MODE THEME SYSTEM (Follows Reference Screenshot)
+   ============================================================ */
+:root[data-theme="white"],
+.theme-white {
+  --bg-primary: #FFFFFF;
+  --bg-secondary: #F8F9FD;
+  --bg-card: #FFFFFF;
+  --bg-card-muted: #F8FAFC;
+  --bg-purple-tint: #FAF5FF;
+  --text-primary: #111827;
+  --text-secondary: #4B5563;
+  --text-muted: #6B7280;
+  --border-light: #F3E8FF;
+  --border-subtle: #E5E7EB;
+  --brand-purple: #7E22CE;
+  --brand-purple-hover: #9333EA;
+  --brand-pink: #EC4899;
+}
+
+.theme-white body {
+  background-color: #F8F9FD;
+  color: #111827;
+}
+
+/* Scrollbar in White Mode */
+.theme-white ::-webkit-scrollbar-track {
+  background: #F1F5F9;
+}
+
+.theme-white ::-webkit-scrollbar-thumb {
+  background: #CBD5E1;
+}
+
+.theme-white ::-webkit-scrollbar-thumb:hover {
+  background: #9333EA;
+}
+
+/* Glass cards adaptation in White mode */
+.theme-white .glass-card,
+.theme-white .glass-card-obsidian {
+  background: #FFFFFF !important;
+  border: 1px solid #F3E8FF !important;
+  box-shadow: 0 4px 20px -2px rgba(126, 34, 206, 0.06), 0 2px 6px rgba(0, 0, 0, 0.02) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+.theme-white .glass-card-gilded {
+  background: linear-gradient(145deg, #FAF5FF 0%, #FFFFFF 100%) !important;
+  border: 1px solid rgba(147, 51, 234, 0.35) !important;
+  box-shadow: 0 6px 24px -2px rgba(147, 51, 234, 0.12) !important;
+}
+
+.theme-white .glass-panel {
+  background: rgba(255, 255, 255, 0.95) !important;
+  border: 1px solid #F3E8FF !important;
+  backdrop-filter: blur(12px) !important;
+  -webkit-backdrop-filter: blur(12px) !important;
+}
+
+/* Buttons in White mode */
+.theme-white .gold-gradient-btn,
+.theme-white .purple-gradient-btn {
+  background: linear-gradient(135deg, #9333EA 0%, #7E22CE 100%) !important;
+  color: #FFFFFF !important;
+  box-shadow: 0 4px 14px rgba(126, 34, 206, 0.3) !important;
+}
+
+.theme-white .gold-gradient-btn:hover,
+.theme-white .purple-gradient-btn:hover {
+  background: linear-gradient(135deg, #A855F7 0%, #9333EA 100%) !important;
+  box-shadow: 0 6px 20px rgba(126, 34, 206, 0.45) !important;
+}
+
+.theme-white .gold-outline-btn {
+  border: 1px solid rgba(126, 34, 206, 0.4) !important;
+  color: #7E22CE !important;
+  background: #FAF5FF !important;
+}
+
+.theme-white .gold-outline-btn:hover {
+  background: #F3E8FF !important;
+  border-color: #7E22CE !important;
+  color: #6B21A8 !important;
+}
+
+.theme-white .gold-text-gradient {
+  background: linear-gradient(135deg, #7E22CE 0%, #9333EA 50%, #EC4899 100%) !important;
+  -webkit-background-clip: text !important;
+  -webkit-text-fill-color: transparent !important;
 }

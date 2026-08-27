@@ -24,16 +24,30 @@ import {
   Eye,
   Camera,
   CheckCircle2,
-  X
+  X,
+  Heart,
+  LayoutGrid,
+  User
 } from 'lucide-react';
 import { BusinessShop } from '../../types';
-import { CurrencySwitcherModal } from '../common/CurrencySwitcherModal';
+import { CustomerLocationModal } from '../common/CustomerLocationModal';
+import { generateGoogleMapsDirectionsUrl } from '../../utils/geoUtils';
 
 export const HomeScreen: React.FC = () => {
   const [activeShowcaseShop, setActiveShowcaseShop] = useState<BusinessShop | null>(null);
   const [showcaseTab, setShowcaseTab] = useState<'video' | 'photos'>('photos');
   const [activePhotoLightboxIdx, setActivePhotoLightboxIdx] = useState<number | null>(null);
+  const [favoriteShopIds, setFavoriteShopIds] = useState<string[]>([]);
+
+  const toggleFavorite = (shopId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setFavoriteShopIds(prev => 
+      prev.includes(shopId) ? prev.filter(id => id !== shopId) : [...prev, shopId]
+    );
+  };
+
   const { 
+    customerLocation,
     userLocation, 
     setUserLocation, 
     shops, 
@@ -51,15 +65,19 @@ export const HomeScreen: React.FC = () => {
     setMode,
     setBusinessScreen,
     setAuthInitialRole,
-    setAuthInitialTab
+    setAuthInitialTab,
+    isLocationModalOpen,
+    setIsLocationModalOpen,
+    theme,
+    customer
   } = useApp();
+
+  const isWhite = theme === 'white';
 
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const [selectedPriceTier, setSelectedPriceTier] = useState<'all' | 'budget' | 'premium' | 'vip'>('all');
   const [sortBy, setSortBy] = useState<'nearest' | 'low_price' | 'high_price' | 'rating'>('nearest');
-  const [showLocationModal, setShowLocationModal] = useState(false);
-  const [showCurrencyModal, setShowCurrencyModal] = useState(false);
 
   const unreadNotifs = notifications.filter(n => !n.isRead).length;
 
@@ -80,27 +98,36 @@ export const HomeScreen: React.FC = () => {
     'Tokyo, Japan'
   ];
 
-  // Dynamic filter & nearest / price tier sorting
+  // Dynamic filter & nearest / price tier sorting with strict geographic proximity
   const filteredAndSortedShops = shops
-    .filter(shop => {
-      const q = searchQuery.toLowerCase().trim();
-      const matchesSearch = !q ||
-        shop.name.toLowerCase().includes(q) ||
-        shop.address.toLowerCase().includes(q) ||
-        shop.city.toLowerCase().includes(q) ||
-        (shop.country && shop.country.toLowerCase().includes(q)) ||
-        shop.businessType.some(bt => bt.toLowerCase().includes(q));
-      
-      const matchesTier = 
-        selectedPriceTier === 'all' || 
-        shop.priceTier === selectedPriceTier;
-      
-      return matchesSearch && matchesTier;
-    })
     .map(shop => ({
       ...shop,
       calculatedDistanceKm: calculateDistanceToShop(shop)
     }))
+    .filter(shop => {
+      const q = searchQuery.toLowerCase().trim();
+      if (q) {
+        return (
+          shop.name.toLowerCase().includes(q) ||
+          shop.address.toLowerCase().includes(q) ||
+          shop.city.toLowerCase().includes(q) ||
+          (shop.country && shop.country.toLowerCase().includes(q)) ||
+          shop.businessType.some(bt => bt.toLowerCase().includes(q))
+        );
+      }
+
+      // When browsing nearby without keyword search:
+      // Show salons in customer's active country/region or within reachable radius (< 150 km)
+      const customerCountry = customerLocation?.countryCode;
+      const isCountryMatch = !customerCountry || !shop.countryCode || shop.countryCode === customerCountry;
+      const isDistanceReasonable = shop.calculatedDistanceKm <= 150;
+
+      const matchesTier = 
+        selectedPriceTier === 'all' || 
+        shop.priceTier === selectedPriceTier;
+      
+      return (isCountryMatch || isDistanceReasonable) && matchesTier;
+    })
     .sort((a, b) => {
       if (sortBy === 'nearest') {
         return a.calculatedDistanceKm - b.calculatedDistanceKm;
@@ -122,463 +149,462 @@ export const HomeScreen: React.FC = () => {
     });
 
   return (
-    <div className="min-h-full pb-20 bg-[#0A0A0F] text-white">
+    <div className={`min-h-full pb-20 font-body transition-colors duration-300 ${
+      isWhite ? 'bg-[#F8F9FD] text-[#111827]' : 'bg-[#08080C] text-[#F3F4F6]'
+    }`}>
       {/* Top Location Bar & Notifications */}
-      <div className="sticky top-0 z-30 bg-[#0A0A0F]/95 backdrop-blur-md px-4 pt-3 pb-2 border-b border-white/5">
+      <div className={`sticky top-0 z-30 backdrop-blur-xl px-4 pt-3 pb-2.5 transition-colors duration-300 ${
+        isWhite 
+          ? 'bg-white/95 border-b border-purple-100/80 shadow-[0_2px_12px_rgba(126,34,206,0.04)]' 
+          : 'bg-[#0A0A10]/95 border-b border-gold-400/15 shadow-sm'
+      }`}>
         <div className="flex items-center justify-between">
-          <div 
-            onClick={() => setShowLocationModal(true)}
-            className="flex items-center gap-2 cursor-pointer group"
-          >
-            <div className="w-8 h-8 rounded-full bg-gold-400/10 border border-gold-400/30 flex items-center justify-center text-gold-400 group-hover:bg-gold-400/20 transition-colors">
-              <MapPin className="w-4 h-4" />
-            </div>
-            <div>
-              <span className="text-[10px] text-gray-400 uppercase tracking-wider block">Current Location</span>
-              <div className="flex items-center gap-1">
-                <span className="text-xs font-bold text-white group-hover:text-gold-300 transition-colors truncate max-w-[180px]">
-                  {userLocation}
+          {isWhite ? (
+            <div className="flex items-center gap-2">
+              <div>
+                <span className="font-heading text-xl font-black tracking-tight bg-gradient-to-r from-purple-800 via-purple-600 to-pink-600 bg-clip-text text-transparent block leading-tight">
+                  ALGO
                 </span>
-                <span className="text-gold-400 text-[10px]">▼</span>
+                <span className="text-[10px] font-semibold text-gray-500 tracking-tight block -mt-0.5">
+                  Salon & Beauty
+                </span>
               </div>
             </div>
-          </div>
+          ) : (
+            <div 
+              onClick={() => setIsLocationModalOpen(true)}
+              className="flex items-center gap-2.5 cursor-pointer group"
+            >
+              <div className="w-8 h-8 rounded-full bg-gold-400/15 border border-gold-400/30 flex items-center justify-center text-gold-300 group-hover:bg-gold-400/25 transition-all shadow-[0_0_10px_rgba(212,175,55,0.15)]">
+                <MapPin className="w-4 h-4" />
+              </div>
+              <div>
+                <span className="text-[10px] text-gray-400 uppercase tracking-widest block font-semibold">Your Location</span>
+                <div className="flex items-center gap-1">
+                  <span className="text-xs font-bold text-white group-hover:text-gold-300 transition-colors truncate max-w-[180px]">
+                    {customerLocation?.address || userLocation}
+                  </span>
+                  <span className="text-gold-400 text-[10px]">▼</span>
+                </div>
+              </div>
+            </div>
+          )}
 
           <div className="flex items-center gap-2">
-            {/* Currency Pill */}
-            <button
-              onClick={() => setShowCurrencyModal(true)}
-              className="flex items-center gap-1 px-2 py-1 rounded-xl bg-[#161622] border border-white/10 text-xs font-bold text-gold-400 hover:border-gold-400/40 transition-colors"
-              title="Currency & Country"
-            >
-              <span>{currency.flag}</span>
-              <span>{currency.symbol}</span>
-            </button>
+            {!isWhite && (
+              /* Country & Currency Badge (Dark mode) */
+              <button
+                onClick={() => setIsLocationModalOpen(true)}
+                className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-[#14141E] border border-gold-400/20 text-xs font-bold text-gold-300 hover:border-gold-400/50 hover:bg-gold-400/10 transition-all shadow-sm"
+                title="Change Your Location / Country"
+              >
+                <span>{customerLocation?.currencySymbol || currency.symbol}</span>
+                <span className="text-[10px] text-gray-400 font-mono">({customerLocation?.countryCode || currency.countryCode || 'AE'})</span>
+              </button>
+            )}
 
             <button
               onClick={() => setCustomerScreen('notifications')}
-              className="relative w-8 h-8 rounded-xl bg-[#181824] border border-white/10 flex items-center justify-center text-gray-300 hover:text-white"
+              className={`relative w-9 h-9 rounded-2xl flex items-center justify-center transition-all ${
+                isWhite
+                  ? 'bg-[#FAF5FF] border border-purple-100 text-purple-700 hover:bg-purple-100'
+                  : 'bg-[#14141E] border border-white/10 text-gray-300 hover:text-gold-300'
+              }`}
             >
-              <Bell className="w-3.5 h-3.5" />
-              {unreadNotifs > 0 && (
-                <span className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-gold-400 text-black text-[9px] font-black rounded-full flex items-center justify-center animate-pulse">
-                  {unreadNotifs}
-                </span>
-              )}
+              <Bell className="w-4 h-4" />
+              <span className={`absolute -top-1 -right-1 min-w-[16px] h-4 text-white text-[9px] font-black rounded-full flex items-center justify-center px-1 shadow-sm ${
+                isWhite ? 'bg-pink-500' : 'bg-gold-400 text-black'
+              }`}>
+                {unreadNotifs > 0 ? unreadNotifs : 3}
+              </span>
             </button>
+
+            {isWhite && (
+              <div 
+                onClick={() => setCustomerScreen('profile')}
+                className="w-9 h-9 rounded-2xl overflow-hidden border border-purple-200 bg-purple-50 cursor-pointer flex items-center justify-center transition-all shadow-sm shrink-0"
+              >
+                {customer.avatar ? (
+                  <img src={customer.avatar} alt="User" className="w-full h-full object-cover" />
+                ) : (
+                  <img 
+                    src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=120&auto=format&fit=crop&q=80" 
+                    alt="Avatar" 
+                    className="w-full h-full object-cover" 
+                  />
+                )}
+              </div>
+            )}
           </div>
         </div>
       </div>
 
-      <div className="px-4 pt-4 space-y-5">
-        {/* Search & Radius Filter Bar */}
+      <div className="px-4 pt-3.5 space-y-4">
+        {/* Search Bar */}
         <div className="relative flex items-center">
-          <Search className="absolute left-3.5 w-4 h-4 text-gray-400" />
+          <Search className={`absolute left-3.5 w-4 h-4 ${isWhite ? 'text-purple-600' : 'text-gold-400/70'}`} />
           <input
             type="text"
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
-            placeholder="Search salon, service, or stylist nearby..."
-            className="w-full bg-[#181824] border border-[#2D2D3F] rounded-2xl pl-10 pr-10 py-3 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-gold-400 shadow-inner"
+            placeholder="Search salons, services..."
+            className={`w-full rounded-2xl pl-10 pr-10 py-3 text-xs outline-none transition-all ${
+              isWhite
+                ? 'bg-white border border-[#EDE9FE] text-gray-900 placeholder-gray-400 shadow-sm focus:border-purple-400 focus:ring-2 focus:ring-purple-100'
+                : 'bg-[#12121A] border border-white/10 text-white placeholder-gray-500 focus:border-gold-400/60 focus:ring-1 focus:ring-gold-400/30 shadow-inner'
+            }`}
           />
           <button
-            onClick={() => setShowLocationModal(true)}
-            className="absolute right-3 text-gold-400 hover:text-gold-300"
+            onClick={() => setIsLocationModalOpen(true)}
+            className={`absolute right-3.5 transition-transform active:scale-95 ${
+              isWhite ? 'text-purple-600 hover:text-purple-700' : 'text-gold-400 hover:text-gold-300'
+            }`}
+            title="Filter by City / Location"
           >
             <SlidersHorizontal className="w-4 h-4" />
           </button>
         </div>
 
-        {/* Hero Banner: Luxury Salon Booking */}
-        <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-[#20180A] via-[#151522] to-[#0A0A0F] border border-gold-400/40 p-5 shadow-gold-sm">
-          <div className="relative z-10 max-w-[220px]">
-            <span className="inline-flex items-center gap-1 text-[9px] font-extrabold uppercase tracking-widest text-gold-400 bg-gold-400/10 px-2 py-0.5 rounded-full border border-gold-400/30 mb-2">
-              <Sparkles className="w-3 h-3" />
-              Pay at Salon Available
-            </span>
-            <h3 className="font-heading text-lg font-black text-white leading-tight">
-              Book Luxury Salons in {currency.country}
-            </h3>
-            <p className="text-[11px] text-gray-300 mt-1">
-              Zero upfront online fee. Currency: <strong>{currency.symbol} ({currency.code})</strong>.
-            </p>
-            <button
-              onClick={() => setCustomerScreen('services')}
-              className="mt-3 gold-gradient-btn px-4 py-2 rounded-xl text-xs font-bold shadow-md inline-flex items-center gap-1.5"
+        {/* Location Selector Bar (as shown in reference screenshot) */}
+        {isWhite && (
+          <div className="flex items-center justify-between pt-0.5">
+            <div 
+              onClick={() => setIsLocationModalOpen(true)}
+              className="flex items-center gap-1.5 cursor-pointer group"
             >
-              <span>Explore Services</span>
-              <ChevronRight className="w-3.5 h-3.5" />
-            </button>
-          </div>
+              <MapPin className="w-3.5 h-3.5 text-purple-600 shrink-0" />
+              <span className="text-xs font-bold text-gray-900 group-hover:text-purple-700 truncate max-w-[200px]">
+                {customerLocation?.city || 'Dubai'}, {customerLocation?.countryCode || 'UAE'}
+              </span>
+              <span className="text-[10px] text-purple-600">▼</span>
+            </div>
 
-          <div className="absolute right-[-10px] bottom-[-10px] w-36 h-36 opacity-30 pointer-events-none">
-            <Scissors className="w-full h-full text-gold-400" />
-          </div>
-        </div>
-
-        {/* Category Filter Chips */}
-        <div>
-          <div className="flex items-center justify-between mb-2">
-            <h3 className="font-heading text-xs font-bold text-gray-400 uppercase tracking-wider">
-              Service Categories
-            </h3>
-            <span className="text-[10px] text-gold-400 font-semibold">{categories.length - 1} Specialities</span>
-          </div>
-
-          <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-1">
-            {categories.map(cat => (
-              <button
-                key={cat}
-                onClick={() => setSelectedCategory(cat)}
-                className={`px-4 py-2 rounded-xl text-xs font-medium whitespace-nowrap transition-all ${
-                  selectedCategory === cat
-                    ? 'bg-gradient-to-r from-gold-500 to-gold-400 text-black font-bold shadow-sm'
-                    : 'bg-[#161622] text-gray-400 border border-white/5 hover:text-white'
-                }`}
-              >
-                {cat}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Popular Services with Multi-Currency Price & Discounts */}
-        <div>
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="font-heading text-sm font-bold text-white tracking-wide">
-              Popular Services
-            </h3>
             <button
-              onClick={() => setCustomerScreen('services')}
-              className="text-[11px] text-gold-400 hover:text-gold-300 font-semibold"
+              onClick={() => setIsLocationModalOpen(true)}
+              className="text-xs font-bold text-purple-700 hover:text-purple-900"
             >
-              View All
-            </button>
-          </div>
-
-          {services.length === 0 ? (
-            <div className="p-4 rounded-2xl bg-[#14141E] border border-white/5 text-center text-xs text-gray-400">
-              <Scissors className="w-5 h-5 text-gold-400/50 mx-auto mb-1" />
-              <span>Real-time salon services will appear here as registered salons list their services.</span>
-            </div>
-          ) : (
-            <div className="grid grid-cols-4 gap-2.5">
-              {services.slice(0, 4).map(srv => (
-                <div
-                  key={srv.id}
-                  onClick={() => {
-                    addToCart(srv);
-                    setCustomerScreen('services');
-                  }}
-                  className="group cursor-pointer flex flex-col items-center text-center p-2 rounded-2xl bg-[#14141E] border border-white/5 hover:border-gold-400/30 transition-all relative"
-                >
-                  {srv.discountPercent && (
-                    <span className="absolute top-1 right-1 bg-red-500 text-white text-[8px] font-black px-1 rounded shadow z-10">
-                      {srv.discountPercent}%
-                    </span>
-                  )}
-                  <div className="w-12 h-12 rounded-xl overflow-hidden mb-1.5 border border-gold-400/20 group-hover:scale-105 transition-transform">
-                    <img
-                      src={srv.image}
-                      alt={srv.name}
-                      className="w-full h-full object-cover"
-                    />
-                  </div>
-                  <span className="text-[11px] font-medium text-gray-200 line-clamp-1 group-hover:text-gold-300">
-                    {srv.name}
-                  </span>
-                  <div className="flex items-center gap-1">
-                    <span className="text-[10px] text-gold-400 font-bold">
-                      {formatPrice(srv.price)}
-                    </span>
-                    {srv.originalPrice && (
-                      <span className="line-through text-gray-500 text-[8px]">
-                        {formatPrice(srv.originalPrice)}
-                      </span>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* Today's Offer Banner */}
-        {offers.length > 0 ? (
-          <div className="relative overflow-hidden rounded-2xl bg-[#17141E] border border-gold-400/20 p-3.5 flex items-center justify-between">
-            <div className="z-10">
-              <div className="flex items-center gap-1 text-[10px] text-amber-400 font-bold mb-1">
-                <Tag className="w-3 h-3" />
-                <span>SPECIAL PROMOTION</span>
-              </div>
-              <h4 className="font-heading text-base font-bold text-white">
-                {offers[0].title} <span className="text-gold-400">({offers[0].code})</span>
-              </h4>
-              <p className="text-[11px] text-gray-400">{offers[0].subtitle || `Flat ${offers[0].discountPercent}% OFF on all salon services`}</p>
-              <button
-                onClick={() => {
-                  applyOfferCode(offers[0].code);
-                  setCustomerScreen('services');
-                }}
-                className="mt-2 text-xs font-bold text-gold-400 hover:text-gold-300 flex items-center gap-1"
-              >
-                <span>Apply & Book Now</span>
-                <ChevronRight className="w-3 h-3" />
-              </button>
-            </div>
-            <div className="w-20 h-20 rounded-xl overflow-hidden border border-gold-400/30 shrink-0">
-              <img
-                src={offers[0].image || 'https://images.unsplash.com/photo-1560066984-138dadb4c035?w=200&auto=format&fit=crop&q=80'}
-                alt={offers[0].title}
-                className="w-full h-full object-cover"
-              />
-            </div>
-          </div>
-        ) : (
-          <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-[#1E1B14] to-[#12121A] border border-gold-400/20 p-3.5 flex items-center justify-between">
-            <div>
-              <div className="flex items-center gap-1 text-[10px] text-emerald-400 font-bold mb-1">
-                <Sparkles className="w-3 h-3" />
-                <span>DIRECT SALON BOOKING</span>
-              </div>
-              <h4 className="font-heading text-sm font-bold text-white">
-                Book Verified Stylists in {currency.country}
-              </h4>
-              <p className="text-[10px] text-gray-400 mt-0.5">Pay at salon after service • Real-time live confirmations</p>
-            </div>
-            <button
-              onClick={() => setCustomerScreen('services')}
-              className="gold-gradient-btn px-3 py-1.5 rounded-xl text-xs font-bold shrink-0"
-            >
-              Explore
+              Change
             </button>
           </div>
         )}
 
-        {/* Recommended Salons & Worldwide Search Header */}
-        <div>
-          <div className="flex items-center justify-between mb-2">
-            <div>
-              <h3 className="font-heading text-sm font-bold text-white tracking-wide flex items-center gap-1.5">
-                <Sparkles className="w-4 h-4 text-gold-400" />
-                <span>Salons & Studios</span>
+        {/* 6 Category Circular Icons (Matching Screenshot) */}
+        {isWhite ? (
+          <div className="grid grid-cols-6 gap-2 pt-1">
+            {[
+              { id: 'Hair', label: 'Haircut', icon: Scissors },
+              { id: 'Skin', label: 'Beauty', icon: Sparkles },
+              { id: 'Spa', label: 'Spa', icon: Tag },
+              { id: 'Nails', label: 'Nails', icon: CheckCircle2 },
+              { id: 'Beard', label: 'Barber', icon: Scissors },
+              { id: 'All', label: 'More', icon: LayoutGrid },
+            ].map(cat => (
+              <button
+                key={cat.label}
+                onClick={() => {
+                  setSelectedCategory(cat.id);
+                  setCustomerScreen('services');
+                }}
+                className="flex flex-col items-center gap-1.5 group"
+              >
+                <div className="w-12 h-12 rounded-2xl bg-[#FAF5FF] border border-[#F3E8FF] flex items-center justify-center text-purple-700 shadow-sm group-hover:bg-purple-100 group-hover:scale-105 transition-all">
+                  <cat.icon className="w-5 h-5" />
+                </div>
+                <span className="text-[11px] font-semibold text-gray-800 tracking-tight">{cat.label}</span>
+              </button>
+            ))}
+          </div>
+        ) : (
+          /* Category Filter Chips for Dark Mode */
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="font-heading text-xs font-bold text-gray-400 uppercase tracking-widest">
+                Service Categories
               </h3>
-              <p className="text-[10px] text-gray-400">
-                {sortBy === 'nearest' ? 'Sorted by nearest GPS distance to you' : 'Curated luxury & budget salons'}
-              </p>
+              <span className="text-[10px] text-gold-300 font-bold">{categories.length - 1} Specialties</span>
             </div>
-            <span className="text-xs text-gold-400 font-bold bg-gold-400/10 px-2 py-0.5 rounded-full border border-gold-400/20">
-              {filteredAndSortedShops.length} Found
-            </span>
-          </div>
 
-          {/* Price Tier Recommendation Chips (User Request 3: Low Price, Expensive, VIP) */}
-          <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-1 mb-2.5">
-            <button
-              onClick={() => setSelectedPriceTier('all')}
-              className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${
-                selectedPriceTier === 'all'
-                  ? 'bg-gold-400 text-black font-extrabold shadow-sm'
-                  : 'bg-[#161622] text-gray-400 border border-white/5 hover:text-white'
-              }`}
-            >
-              All Tiers ({shops.length})
-            </button>
-            <button
-              onClick={() => setSelectedPriceTier('budget')}
-              className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all flex items-center gap-1 ${
-                selectedPriceTier === 'budget'
-                  ? 'bg-emerald-500 text-black font-extrabold shadow-sm'
-                  : 'bg-[#161622] text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/10'
-              }`}
-            >
-              <span>💚 Budget (Low Price)</span>
-            </button>
-            <button
-              onClick={() => setSelectedPriceTier('premium')}
-              className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all flex items-center gap-1 ${
-                selectedPriceTier === 'premium'
-                  ? 'bg-blue-500 text-white font-extrabold shadow-sm'
-                  : 'bg-[#161622] text-blue-400 border border-blue-500/20 hover:bg-blue-500/10'
-              }`}
-            >
-              <span>💎 Premium Studios</span>
-            </button>
-            <button
-              onClick={() => setSelectedPriceTier('vip')}
-              className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all flex items-center gap-1 ${
-                selectedPriceTier === 'vip'
-                  ? 'bg-gradient-to-r from-amber-400 via-gold-400 to-amber-500 text-black font-extrabold shadow-gold-sm'
-                  : 'bg-[#1E1810] text-gold-300 border border-gold-400/40 hover:bg-gold-400/10'
-              }`}
-            >
-              <span>👑 VIP Luxury</span>
-            </button>
-          </div>
-
-          {/* Quick Sort Options Bar */}
-          <div className="flex items-center justify-between pb-2 text-[11px] text-gray-400 border-b border-white/5 mb-3">
-            <span className="font-semibold text-gray-400">Sort by:</span>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => setSortBy('nearest')}
-                className={`transition-colors font-medium ${sortBy === 'nearest' ? 'text-gold-400 font-bold underline underline-offset-4' : 'hover:text-white'}`}
-              >
-                📍 Nearest
-              </button>
-              <span>•</span>
-              <button
-                onClick={() => setSortBy('low_price')}
-                className={`transition-colors font-medium ${sortBy === 'low_price' ? 'text-emerald-400 font-bold underline underline-offset-4' : 'hover:text-white'}`}
-              >
-                🏷️ Low Price
-              </button>
-              <span>•</span>
-              <button
-                onClick={() => setSortBy('high_price')}
-                className={`transition-colors font-medium ${sortBy === 'high_price' ? 'text-gold-300 font-bold underline underline-offset-4' : 'hover:text-white'}`}
-              >
-                👑 VIP Luxury
-              </button>
-              <span>•</span>
-              <button
-                onClick={() => setSortBy('rating')}
-                className={`transition-colors font-medium ${sortBy === 'rating' ? 'text-amber-400 font-bold underline underline-offset-4' : 'hover:text-white'}`}
-              >
-                ⭐ Rating
-              </button>
+            <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-1">
+              {categories.map(cat => (
+                <button
+                  key={cat}
+                  onClick={() => setSelectedCategory(cat)}
+                  className={`px-4 py-2 rounded-xl text-xs font-medium whitespace-nowrap transition-all ${
+                    selectedCategory === cat
+                      ? 'gold-gradient-btn'
+                      : 'bg-[#14141E] text-gray-400 border border-white/5 hover:text-white hover:border-gold-400/20'
+                  }`}
+                >
+                  {cat}
+                </button>
+              ))}
             </div>
           </div>
+        )}
 
-          {/* Salon Cards List */}
+        {/* Promo Banner ("Look Good. Feel Amazing.") */}
+        <div className={`relative overflow-hidden rounded-3xl p-5 shadow-lg transition-all ${
+          isWhite
+            ? 'bg-gradient-to-r from-[#180F2A] via-[#2A134A] to-[#120822] text-white shadow-[0_10px_30px_rgba(126,34,206,0.18)]'
+            : 'bg-gradient-to-br from-[#241C0E] via-[#161622] to-[#0A0A10] border border-gold-400/35 text-white shadow-[0_8px_30px_rgba(212,175,55,0.12)]'
+        }`}>
+          <div className="relative z-10 max-w-[210px] space-y-1">
+            <h3 className="font-heading text-lg font-black text-white leading-tight">
+              Look Good.<br />
+              <span className={isWhite ? 'text-pink-400' : 'gold-text-gradient'}>Feel Amazing.</span>
+            </h3>
+            <p className={`text-[11px] mt-1 ${isWhite ? 'text-purple-200' : 'text-gray-300'}`}>
+              Book best salons & get exciting offers!
+            </p>
+            <button
+              onClick={() => setCustomerScreen('services')}
+              className={`mt-3 px-4 py-2 rounded-xl text-xs font-bold shadow-md inline-flex items-center gap-1.5 transition-all ${
+                isWhite
+                  ? 'bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white'
+                  : 'gold-gradient-btn'
+              }`}
+            >
+              <span>Explore Now</span>
+              <ChevronRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
+
+          <div className="absolute right-0 top-0 bottom-0 w-44 overflow-hidden rounded-r-3xl pointer-events-none">
+            <img
+              src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=500&auto=format&fit=crop&q=80"
+              alt="Promo Ambient"
+              className="w-full h-full object-cover opacity-85"
+            />
+            <div className={`absolute inset-0 bg-gradient-to-r ${isWhite ? 'from-[#180F2A] via-transparent to-transparent' : 'from-[#241C0E] via-transparent to-transparent'}`} />
+          </div>
+        </div>
+
+        {/* Featured Salons (Horizontal Carousel) */}
+        <div>
+          <div className="flex items-center justify-between mb-2.5">
+            <h3 className={`font-heading text-sm font-bold tracking-tight ${isWhite ? 'text-gray-900' : 'text-white'}`}>
+              Featured Salons
+            </h3>
+            <button
+              onClick={() => setCustomerScreen('services')}
+              className={`text-xs font-bold flex items-center gap-0.5 ${isWhite ? 'text-purple-700 hover:text-purple-800' : 'text-gold-400 hover:text-gold-300'}`}
+            >
+              <span>View all</span>
+              <ChevronRight className="w-3 h-3" />
+            </button>
+          </div>
+
+          <div className="flex gap-3 overflow-x-auto no-scrollbar py-1 -mx-4 px-4">
+            {filteredAndSortedShops.map(shop => {
+              const isFav = favoriteShopIds.includes(shop.id);
+              return (
+                <div
+                  key={shop.id}
+                  onClick={() => {
+                    setSelectedShop(shop);
+                    setCustomerScreen('services');
+                  }}
+                  className={`min-w-[210px] max-w-[210px] rounded-2xl overflow-hidden cursor-pointer transition-all duration-300 group shrink-0 ${
+                    isWhite
+                      ? 'bg-white border border-[#EDE9FE] shadow-sm hover:shadow-md'
+                      : 'glass-card-obsidian hover:border-gold-400/40 shadow-md'
+                  }`}
+                >
+                  <div className="relative h-28 w-full overflow-hidden bg-gray-100">
+                    <img
+                      src={shop.image}
+                      alt={shop.name}
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                    />
+                    <span className="absolute top-2 left-2 px-2 py-0.5 rounded-md bg-purple-700/90 backdrop-blur-sm text-white text-[9px] font-bold tracking-wider uppercase shadow">
+                      ★ TOP RATED
+                    </span>
+                    <button
+                      type="button"
+                      onClick={(e) => toggleFavorite(shop.id, e)}
+                      className="absolute top-2 right-2 w-6 h-6 rounded-full bg-black/40 backdrop-blur-sm flex items-center justify-center text-white hover:text-pink-400 transition-colors"
+                    >
+                      <Heart className={`w-3.5 h-3.5 ${isFav ? 'fill-pink-500 text-pink-500' : 'text-white'}`} />
+                    </button>
+                  </div>
+
+                  <div className="p-2.5 space-y-1.5">
+                    <h4 className={`font-heading text-xs font-bold truncate ${isWhite ? 'text-gray-900' : 'text-white'}`}>
+                      {shop.name}
+                    </h4>
+
+                    <div className="flex items-center justify-between text-[10px]">
+                      <span className="flex items-center gap-1 font-bold text-amber-500">
+                        <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
+                        <span>{shop.rating}</span>
+                        <span className={isWhite ? 'text-gray-500 font-normal' : 'text-gray-400 font-normal'}>({shop.reviewCount || 320})</span>
+                      </span>
+                      <span className={isWhite ? 'text-gray-500' : 'text-gray-400'}>
+                        📍 {shop.calculatedDistanceKm} km
+                      </span>
+                    </div>
+
+                    <div className="pt-1 flex items-center justify-between border-t border-gray-100">
+                      <span className="px-2 py-0.5 rounded bg-pink-50 text-pink-600 font-bold text-[9px]">
+                        20% OFF
+                      </span>
+                      <span className={`text-[10px] font-bold ${isWhite ? 'text-purple-700' : 'text-gold-300'}`}>
+                        From {formatPrice(shop.avgPrice || 150, shop)}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Popular Services Section (Matching Screenshot) */}
+        <div>
+          <div className="flex items-center justify-between mb-2.5">
+            <h3 className={`font-heading text-sm font-bold tracking-tight ${isWhite ? 'text-gray-900' : 'text-white'}`}>
+              Popular Services
+            </h3>
+            <button
+              onClick={() => setCustomerScreen('services')}
+              className={`text-xs font-bold flex items-center gap-0.5 ${isWhite ? 'text-purple-700 hover:text-purple-800' : 'text-gold-400 hover:text-gold-300'}`}
+            >
+              <span>View all</span>
+              <ChevronRight className="w-3 h-3" />
+            </button>
+          </div>
+
+          <div className="flex gap-3 overflow-x-auto no-scrollbar py-1 -mx-4 px-4">
+            {(services.length > 0 ? services : [
+              { id: 's1', name: 'Haircut', price: 60, duration: '30 min', category: 'Hair' },
+              { id: 's2', name: 'Hair Color', price: 150, duration: '60 min', category: 'Hair' },
+              { id: 's3', name: 'Facial', price: 120, duration: '45 min', category: 'Skin' },
+              { id: 's4', name: 'Manicure', price: 80, duration: '30 min', category: 'Nails' },
+            ]).slice(0, 6).map((srv: any) => (
+              <div
+                key={srv.id}
+                onClick={() => {
+                  addToCart(srv);
+                  setCustomerScreen('services');
+                }}
+                className={`min-w-[170px] rounded-2xl p-3 flex items-center gap-3 cursor-pointer transition-all shrink-0 ${
+                  isWhite
+                    ? 'bg-white border border-[#EDE9FE] shadow-sm hover:shadow-md'
+                    : 'glass-card-obsidian hover:border-gold-400/30'
+                }`}
+              >
+                <div className={`w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 ${
+                  isWhite ? 'bg-[#FAF5FF] text-purple-700 border border-purple-100' : 'bg-[#14141E] text-gold-300 border border-white/10'
+                }`}>
+                  <Scissors className="w-5 h-5" />
+                </div>
+                <div className="min-w-0">
+                  <h5 className={`text-xs font-bold truncate ${isWhite ? 'text-gray-900' : 'text-white'}`}>
+                    {srv.name}
+                  </h5>
+                  <div className={`text-[11px] font-bold ${isWhite ? 'text-purple-700' : 'text-gold-300'}`}>
+                    From {formatPrice(srv.price)}
+                  </div>
+                  <div className={`text-[10px] ${isWhite ? 'text-gray-500' : 'text-gray-400'}`}>
+                    ⏱ {srv.duration || '30 min'}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Nearby Salons Section (Matching Screenshot) */}
+        <div>
+          <div className="flex items-center justify-between mb-2.5">
+            <h3 className={`font-heading text-sm font-bold tracking-tight ${isWhite ? 'text-gray-900' : 'text-white'}`}>
+              Nearby Salons
+            </h3>
+            <button
+              onClick={() => setCustomerScreen('services')}
+              className={`text-xs font-bold flex items-center gap-0.5 ${isWhite ? 'text-purple-700 hover:text-purple-800' : 'text-gold-400 hover:text-gold-300'}`}
+            >
+              <span>View all</span>
+              <ChevronRight className="w-3 h-3" />
+            </button>
+          </div>
+
           <div className="space-y-3">
             {filteredAndSortedShops.length === 0 ? (
-              <div className="glass-card p-6 rounded-2xl text-center space-y-2 border border-white/5 my-3">
-                <MapPin className="w-8 h-8 text-gray-500 mx-auto" />
-                <p className="text-xs font-bold text-white">No salons match your search</p>
-                <p className="text-[11px] text-gray-400">Try changing your location, search keywords, or price tier filter.</p>
+              <div className={`p-6 rounded-2xl text-center space-y-2 border ${
+                isWhite ? 'bg-white border-purple-100 text-gray-800' : 'glass-card-obsidian border-white/10 text-white'
+              }`}>
+                <MapPin className={`w-8 h-8 mx-auto ${isWhite ? 'text-purple-400' : 'text-gold-400/50'}`} />
+                <p className="text-xs font-bold">No salons match your search</p>
+                <p className={`text-[11px] ${isWhite ? 'text-gray-500' : 'text-gray-400'}`}>Try changing your location, search keywords, or price tier filter.</p>
               </div>
             ) : (
               filteredAndSortedShops.map(shop => {
-                const mapsLink = shop.googleMapsUrl || `https://maps.google.com/?q=${encodeURIComponent(shop.address)}`;
+                const mapsLink = shop.googleMapsUrl || generateGoogleMapsDirectionsUrl(shop.latitude || 25.2048, shop.longitude || 55.2708, shop.address);
                 return (
                   <div
                     key={shop.id}
-                    className={`glass-card p-3.5 rounded-2xl border transition-all overflow-hidden relative ${
-                      shop.priceTier === 'vip'
-                        ? 'border-gold-400/40 shadow-gold-sm bg-gradient-to-br from-[#1C170E] via-[#12121A] to-[#0E0E16]'
-                        : shop.priceTier === 'premium'
-                        ? 'border-blue-500/20 bg-[#12121D]'
-                        : 'border-white/10 hover:border-gold-400/30'
+                    className={`p-3 rounded-2xl transition-all duration-300 flex items-center gap-3 ${
+                      isWhite
+                        ? 'bg-white border border-[#EDE9FE] shadow-sm hover:shadow-md'
+                        : 'glass-card-obsidian hover:border-gold-400/35 shadow-md'
                     }`}
                   >
-                    {/* Cover Banner if available */}
-                    {shop.bannerImage && (
-                      <div className="h-20 -mx-3.5 -mt-3.5 mb-3 overflow-hidden relative">
-                        <img src={shop.bannerImage} alt="Cover" className="w-full h-full object-cover" />
-                        <div className="absolute inset-0 bg-gradient-to-t from-[#0E0E16] via-transparent to-transparent" />
-                      </div>
-                    )}
+                    <div className="w-20 h-20 rounded-2xl overflow-hidden shrink-0 bg-gray-100">
+                      <img src={shop.image} alt={shop.name} className="w-full h-full object-cover" />
+                    </div>
 
-                    <div className="flex gap-3">
-                      <div className="w-20 h-20 rounded-xl overflow-hidden border border-white/10 shrink-0 relative">
-                        <img
-                          src={shop.image}
-                          alt={shop.name}
-                          className="w-full h-full object-cover"
-                        />
-                        <span className="absolute bottom-1 right-1 bg-black/85 backdrop-blur-sm text-gold-400 text-[9px] font-bold px-1.5 py-0.5 rounded flex items-center gap-0.5">
-                          <MapPin className="w-2.5 h-2.5 text-gold-400" />
-                          <span>{shop.calculatedDistanceKm} km</span>
-                        </span>
-                      </div>
-
-                      <div className="flex-1 min-w-0 flex flex-col justify-between">
-                        <div>
-                          <div className="flex items-start justify-between gap-1">
-                            <h4 className="font-heading text-xs font-bold text-white truncate">
-                              {shop.name}
-                            </h4>
-                            <div className="flex items-center gap-1 bg-emerald-500/10 px-1.5 py-0.5 rounded text-[10px] text-emerald-400 font-bold shrink-0">
-                              <Star className="w-2.5 h-2.5 fill-emerald-400" />
-                              <span>{shop.rating}</span>
-                            </div>
-                          </div>
-
-                          {/* Price Tier & Category Badge */}
-                          <div className="flex items-center gap-1.5 mt-1 flex-wrap">
-                            {shop.priceTier === 'budget' && (
-                              <span className="px-2 py-0.5 rounded-full text-[9px] font-bold bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
-                                💚 Budget Friendly
-                              </span>
-                            )}
-                            {shop.priceTier === 'premium' && (
-                              <span className="px-2 py-0.5 rounded-full text-[9px] font-bold bg-blue-500/15 text-blue-300 border border-blue-500/30">
-                                💎 Premium Studio
-                              </span>
-                            )}
-                            {shop.priceTier === 'vip' && (
-                              <span className="px-2 py-0.5 rounded-full text-[9px] font-bold bg-gold-400/20 text-gold-300 border border-gold-400/50 shadow-gold-sm">
-                                👑 VIP Ultra Luxury
-                              </span>
-                            )}
-                            <span className="text-[10px] text-gold-400 font-semibold">
-                              From {formatPrice(shop.avgPrice || (shop.priceTier === 'budget' ? 200 : shop.priceTier === 'premium' ? 650 : 1800))}
-                            </span>
-                          </div>
-
-                          <p className="text-[11px] text-gray-400 truncate mt-1">
-                            {shop.address}
-                          </p>
-                          <div className="flex items-center gap-2 mt-0.5 text-[10px] text-gray-400">
-                            <span className="text-emerald-400 font-semibold">● Open</span>
-                            <span>•</span>
-                            <span>{shop.openingTime} - {shop.closingTime}</span>
-                          </div>
+                    <div className="flex-1 min-w-0 flex flex-col justify-between">
+                      <div>
+                        <h4 className={`font-heading text-xs font-bold truncate ${isWhite ? 'text-gray-900' : 'text-white'}`}>
+                          {shop.name}
+                        </h4>
+                        <div className="flex items-center gap-1.5 text-[10px] mt-0.5">
+                          <span className="flex items-center gap-0.5 font-bold text-amber-500">
+                            <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
+                            <span>{shop.rating}</span>
+                            <span className={isWhite ? 'text-gray-500 font-normal' : 'text-gray-400 font-normal'}>({shop.reviewCount || 150})</span>
+                          </span>
+                          <span>•</span>
+                          <span className={isWhite ? 'text-gray-500' : 'text-gray-400'}>
+                            📍 {shop.calculatedDistanceKm} km
+                          </span>
                         </div>
-
-                        <div className="flex items-center justify-between pt-2 border-t border-white/5 mt-1">
-                          <div className="flex items-center gap-1.5">
-                            {/* Direct Google Maps Link */}
-                            <a
-                              href={mapsLink}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="px-2.5 py-1 rounded-lg bg-[#181824] hover:bg-gold-400/10 border border-white/10 hover:border-gold-400/40 text-gold-400 text-[10px] font-bold flex items-center gap-1 transition-colors"
-                              title="Open Google Maps Location"
-                            >
-                              <Navigation className="w-3 h-3" />
-                              <span>Map</span>
-                            </a>
-
-                            {/* Salon Media Showcase Button (1 Video + 5 Photos) */}
-                            {(shop.bannerVideoUrl || (shop.galleryImages && shop.galleryImages.length > 0)) && (
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setActiveShowcaseShop(shop);
-                                  setShowcaseTab(shop.bannerVideoUrl ? 'video' : 'photos');
-                                  setActivePhotoLightboxIdx(null);
-                                }}
-                                className="px-2.5 py-1 rounded-lg bg-gold-400/15 hover:bg-gold-400/25 border border-gold-400/30 text-gold-300 text-[10px] font-bold flex items-center gap-1 transition-all hover:scale-105 active:scale-95"
-                                title="View Salon Ambience Showcase (1 Video • 5 Photos)"
-                              >
-                                <Sparkles className="w-3 h-3 text-gold-400" />
-                                <span>Showcase ({shop.galleryImages?.length || 0}/5{shop.bannerVideoUrl ? ' • 🎬' : ''})</span>
-                              </button>
-                            )}
-                          </div>
-
-                          <button
-                            onClick={() => {
-                              setSelectedShop(shop);
-                              setCustomerScreen('services');
-                            }}
-                            className="gold-gradient-btn px-3 py-1 rounded-lg text-[11px] font-bold"
-                          >
-                            Book Appointment
-                          </button>
+                        <div className="flex items-center gap-1.5 text-[10px] mt-0.5">
+                          <span className="text-emerald-600 font-semibold">Open now</span>
+                          <span>•</span>
+                          <span className={isWhite ? 'text-gray-500' : 'text-gray-400'}>
+                            {shop.openingTime} - {shop.closingTime}
+                          </span>
                         </div>
+                      </div>
+
+                      <div className="flex items-center justify-between mt-2 pt-1.5 border-t border-gray-100">
+                        <a
+                          href={mapsLink}
+                          target="_blank"
+                          rel="noreferrer"
+                          className={`text-[10px] font-bold flex items-center gap-1 ${
+                            isWhite ? 'text-purple-700 hover:text-purple-800' : 'text-gold-300 hover:text-gold-200'
+                          }`}
+                        >
+                          <Navigation className="w-3 h-3" />
+                          <span>Map</span>
+                        </a>
+
+                        <button
+                          onClick={() => {
+                            setSelectedShop(shop);
+                            setCustomerScreen('services');
+                          }}
+                          className={`px-3.5 py-1.5 rounded-xl text-xs font-bold shadow-sm transition-all ${
+                            isWhite
+                              ? 'bg-[#7E22CE] hover:bg-[#6B21A8] text-white'
+                              : 'gold-gradient-btn'
+                          }`}
+                        >
+                          Book Now
+                        </button>
                       </div>
                     </div>
                   </div>
@@ -589,15 +615,21 @@ export const HomeScreen: React.FC = () => {
         </div>
 
         {/* Salon Owner Partner Registration CTA Banner */}
-        <div className="rounded-2xl bg-gradient-to-r from-[#1C160B] via-[#14141E] to-[#12121A] border border-gold-400/30 p-4 flex items-center justify-between shadow-gold-sm mt-4">
+        <div className={`rounded-2xl border p-4 flex items-center justify-between shadow-sm mt-4 ${
+          isWhite
+            ? 'bg-gradient-to-r from-purple-50 via-pink-50 to-white border-purple-200 text-gray-900'
+            : 'bg-gradient-to-r from-[#1C160B] via-[#14141E] to-[#12121A] border-gold-400/30 text-white'
+        }`}>
           <div className="space-y-1 max-w-[210px]">
-            <span className="text-[10px] font-extrabold uppercase tracking-wider text-gold-400 bg-gold-400/10 px-2 py-0.5 rounded-md border border-gold-400/20">
+            <span className={`text-[10px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded-md border ${
+              isWhite ? 'text-purple-700 bg-purple-100 border-purple-200' : 'text-gold-400 bg-gold-400/10 border-gold-400/20'
+            }`}>
               For Salon Owners
             </span>
-            <h4 className="font-heading text-sm font-bold text-white">
+            <h4 className={`font-heading text-sm font-bold ${isWhite ? 'text-gray-900' : 'text-white'}`}>
               List Your Salon on ALGO
             </h4>
-            <p className="text-[11px] text-gray-400">
+            <p className={`text-[11px] ${isWhite ? 'text-gray-600' : 'text-gray-400'}`}>
               Reach thousands of clients, manage bookings, staff & payroll.
             </p>
           </div>
@@ -609,66 +641,17 @@ export const HomeScreen: React.FC = () => {
               setMode('business');
               setBusinessScreen('auth');
             }}
-            className="gold-gradient-btn px-3.5 py-2.5 rounded-xl text-xs font-bold shadow-md shrink-0 flex items-center gap-1 hover:brightness-110 active:scale-95 transition-all"
+            className={`px-3.5 py-2.5 rounded-xl text-xs font-bold shadow-md shrink-0 flex items-center gap-1 hover:brightness-110 active:scale-95 transition-all ${
+              isWhite
+                ? 'bg-[#7E22CE] hover:bg-[#6B21A8] text-white'
+                : 'gold-gradient-btn'
+            }`}
           >
             <Store className="w-3.5 h-3.5" />
             <span>Register Salon</span>
           </button>
         </div>
       </div>
-
-      {/* Location Picker Modal */}
-      {showLocationModal && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-[#14141E] border border-gold-400/30 rounded-2xl w-full max-w-sm p-5 space-y-4">
-            <div className="flex items-center justify-between">
-              <h3 className="font-heading font-bold text-base text-white flex items-center gap-2">
-                <MapPin className="w-4 h-4 text-gold-400" />
-                Select Your Location
-              </h3>
-              <button
-                onClick={() => setShowLocationModal(false)}
-                className="text-gray-400 hover:text-white"
-              >
-                ✕
-              </button>
-            </div>
-
-            <button
-              onClick={() => {
-                detectUserLocationAndCurrency();
-                setShowLocationModal(false);
-              }}
-              className="w-full py-2.5 px-3 rounded-xl bg-gold-400 text-black font-bold text-xs flex items-center justify-center gap-2 shadow-sm"
-            >
-              <Navigation className="w-4 h-4" />
-              <span>Use Current GPS Live Location</span>
-            </button>
-
-            <div className="space-y-2 max-h-60 overflow-y-auto no-scrollbar">
-              {locations.map(loc => (
-                <button
-                  key={loc}
-                  onClick={() => {
-                    setUserLocation(loc);
-                    setShowLocationModal(false);
-                  }}
-                  className={`w-full p-2.5 rounded-xl text-left text-xs font-semibold flex items-center justify-between border transition-all ${
-                    userLocation === loc
-                      ? 'bg-gold-400/15 border-gold-400 text-gold-300'
-                      : 'bg-[#181824] border-white/5 text-gray-300 hover:border-gold-400/30'
-                  }`}
-                >
-                  <span>{loc}</span>
-                  {userLocation === loc && (
-                    <span className="text-gold-400 font-bold">✓ Selected</span>
-                  )}
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Luxury Salon Showcase & Ambience Modal (1 Video + 5 Photos) */}
       {activeShowcaseShop && (
@@ -878,10 +861,10 @@ export const HomeScreen: React.FC = () => {
         </div>
       )}
 
-      {/* Currency Switcher Modal */}
-      <CurrencySwitcherModal
-        isOpen={showCurrencyModal}
-        onClose={() => setShowCurrencyModal(false)}
+      {/* Customer Location Modal */}
+      <CustomerLocationModal
+        isOpen={isLocationModalOpen}
+        onClose={() => setIsLocationModalOpen(false)}
       />
     </div>
   );

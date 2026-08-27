@@ -18,7 +18,9 @@ import {
   AppNotification, 
   InventoryItem, 
   PayrollRecord, 
-  CurrencyInfo 
+  CurrencyInfo,
+  CountryInfo,
+  CustomerLocationData
 } from '../types';
 import { 
   initialCustomer, 
@@ -32,19 +34,37 @@ import {
   initialNotifications,
   initialInventory,
   initialPayrolls,
-  supportedCurrencies
+  supportedCurrencies,
+  supportedCountries,
+  getCountryByCode,
+  getCountryByName
 } from '../data/mockData';
+import { 
+  parseCoordinatesFromMapUrl, 
+  resolveCountryFromCoordinates, 
+  calculateHaversineDistance,
+  isValidCoordinates,
+  generateGoogleMapsDirectionsUrl
+} from '../utils/geoUtils';
 import { supabase } from '../supabaseALGOClient';
 import { SupabaseAuth } from '../services/supabaseAuthService';
 import { SupabaseStorage } from '../services/supabaseStorageService';
 import {
   SupabaseAPI,
-  mapBookingFromDB,
-  mapServiceFromDB,
-  mapStylistFromDB,
-  mapInventoryFromDB,
   mapShopFromDB,
-  mapOfferFromDB
+  mapShopToDB,
+  mapStylistFromDB,
+  mapStylistToDB,
+  mapServiceFromDB,
+  mapServiceToDB,
+  mapBookingFromDB,
+  mapBookingToDB,
+  mapOfferFromDB,
+  mapOfferToDB,
+  mapInventoryFromDB,
+  mapInventoryToDB,
+  mapPayrollFromDB,
+  mapPayrollToDB
 } from '../services/supabaseService';
 import { getAiServiceAvatar, getAiStylistAvatar } from '../utils/aiAvatarHelper';
 
@@ -53,10 +73,10 @@ interface AppContextType {
   setMode: (mode: AppMode) => void;
   customerScreen: CustomerScreen;
   setCustomerScreen: (screen: CustomerScreen, tab?: CustomerTab) => void;
-  customerActiveTab: CustomerTab;
-  setCustomerActiveTab: (tab: CustomerTab) => void;
   businessScreen: BusinessScreen;
   setBusinessScreen: (screen: BusinessScreen, tab?: BusinessTab) => void;
+  customerActiveTab: CustomerTab;
+  setCustomerActiveTab: (tab: CustomerTab) => void;
   businessActiveTab: BusinessTab;
   setBusinessActiveTab: (tab: BusinessTab) => void;
   deviceViewMode: 'mobile' | 'fullscreen' | 'dual';
@@ -70,11 +90,17 @@ interface AppContextType {
   authInitialTab: 'signin' | 'signup';
   setAuthInitialTab: (tab: 'signin' | 'signup') => void;
 
-  userLocation: string;
+  // Independent Customer Location & Country
+  customerLocation: CustomerLocationData;
+  userLocation: string; // alias for customerLocation.address
   setUserLocation: (loc: string) => void;
   userCoords: { latitude: number; longitude: number } | null;
   isLocationDetected: boolean;
+  isLocationModalOpen: boolean;
+  setIsLocationModalOpen: (open: boolean) => void;
   detectUserLocationAndCurrency: () => void;
+  requestCustomerGpsLocation: () => Promise<{ success: boolean; countryCode?: string; message?: string }>;
+  setCustomerManualCountry: (countryCodeOrName: string) => void;
   calculateDistanceToShop: (shop: BusinessShop) => number;
 
   // Supabase Session State & Protection
@@ -82,10 +108,10 @@ interface AppContextType {
   checkAuthSession: () => Promise<boolean>;
   signOutSupabase: () => Promise<void>;
 
-  // Currency System
+  // Customer & Contextual Currency System
   currency: CurrencyInfo;
   setCurrency: (c: CurrencyInfo) => void;
-  formatPrice: (amountInINR: number) => string;
+  formatPrice: (amount: number, shopOrCurrency?: string | CurrencyInfo | CountryInfo | BusinessShop) => string;
 
   shops: BusinessShop[];
   selectedShop: BusinessShop | null;
@@ -193,7 +219,10 @@ interface AppContextType {
   bulkApplyDiscountToAllServices: (discountPercent: number) => void;
   createShopOffer: (offer: Omit<Offer, 'id'>) => void;
   deleteOffer: (offerId: string) => void;
-  
+  // Theme System (Dark Mode vs White Mode)
+  theme: 'dark' | 'white';
+  setTheme: (theme: 'dark' | 'white') => void;
+
   resetDemoData: () => void;
 }
 
@@ -254,6 +283,19 @@ export const formatLiveBookingDate = (dateStr: string): string => {
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
+const defaultCustomerLocation: CustomerLocationData = {
+  address: 'Downtown Dubai, UAE',
+  city: 'Dubai',
+  countryCode: 'AE',
+  countryName: 'United Arab Emirates',
+  currencyCode: 'AED',
+  currencySymbol: 'AED',
+  phoneCountryCode: '+971',
+  latitude: 25.2048,
+  longitude: 55.2708,
+  isGpsAllowed: false
+};
+
 const defaultEmptyCustomer: CustomerProfile = {
   id: '',
   name: '',
@@ -262,7 +304,14 @@ const defaultEmptyCustomer: CustomerProfile = {
   avatar: '',
   walletBalance: 0,
   isVerified: false,
-  savedAddresses: []
+  savedAddresses: [],
+  countryCode: 'AE',
+  countryName: 'United Arab Emirates',
+  currencyCode: 'AED',
+  currencySymbol: 'AED',
+  phoneCountryCode: '+971',
+  latitude: 25.2048,
+  longitude: 55.2708
 };
 
 const defaultEmptyBusinessShop: BusinessShop = {
@@ -272,8 +321,12 @@ const defaultEmptyBusinessShop: BusinessShop = {
   phone: '',
   email: '',
   address: '',
-  city: '',
-  country: 'India',
+  city: 'Dubai',
+  country: 'United Arab Emirates',
+  countryCode: 'AE',
+  currency: 'AED',
+  currencySymbol: 'AED',
+  phoneCountryCode: '+971',
   businessType: ['Salon'],
   staffCount: 1,
   openingTime: '09:00 AM',
@@ -288,7 +341,9 @@ const defaultEmptyBusinessShop: BusinessShop = {
   taxVatNo: '',
   isVerified: false,
   priceTier: 'budget',
-  avgPrice: 200
+  avgPrice: 150,
+  latitude: 25.2048,
+  longitude: 55.2708
 };
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -321,19 +376,87 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [authInitialTab, setAuthInitialTab] = useState<'signin' | 'signup'>('signin');
   const [deviceViewMode, setDeviceViewMode] = useState<'mobile' | 'fullscreen' | 'dual'>('mobile');
   const [authInitialRole, setAuthInitialRole] = useState<'customer' | 'business'>('customer');
-  const [userLocation, setUserLocation] = useState<string>(() => {
-    return localStorage.getItem(STORAGE_KEY + '_userLocation') || 'Select Location';
+
+  // Theme State (Dark Mode vs White Mode)
+  const [theme, setThemeState] = useState<'dark' | 'white'>(() => {
+    const saved = localStorage.getItem(STORAGE_KEY + '_theme');
+    return (saved === 'white' || saved === 'dark') ? saved : 'white';
   });
-  const [userCoords, setUserCoords] = useState<{ latitude: number; longitude: number } | null>(null);
-  const [isLocationDetected, setIsLocationDetected] = useState<boolean>(false);
+
+  const setTheme = (newTheme: 'dark' | 'white') => {
+    setThemeState(newTheme);
+    localStorage.setItem(STORAGE_KEY + '_theme', newTheme);
+    if (typeof document !== 'undefined') {
+      if (newTheme === 'white') {
+        document.documentElement.classList.add('theme-white');
+        document.documentElement.classList.remove('theme-dark');
+        document.documentElement.setAttribute('data-theme', 'white');
+      } else {
+        document.documentElement.classList.add('theme-dark');
+        document.documentElement.classList.remove('theme-white');
+        document.documentElement.setAttribute('data-theme', 'dark');
+      }
+    }
+  };
+
+  React.useEffect(() => {
+    if (typeof document !== 'undefined') {
+      if (theme === 'white') {
+        document.documentElement.classList.add('theme-white');
+        document.documentElement.classList.remove('theme-dark');
+        document.documentElement.setAttribute('data-theme', 'white');
+      } else {
+        document.documentElement.classList.add('theme-dark');
+        document.documentElement.classList.remove('theme-white');
+        document.documentElement.setAttribute('data-theme', 'dark');
+      }
+    }
+  }, [theme]);
+
+  // Customer Independent Location & Modal State
+  const [customerLocation, setCustomerLocation] = useState<CustomerLocationData>(() => {
+    const saved = localStorage.getItem(STORAGE_KEY + '_customerLocation');
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch {}
+    }
+    return defaultCustomerLocation;
+  });
+  const [isLocationModalOpen, setIsLocationModalOpen] = useState<boolean>(false);
+  const [userLocation, setUserLocation] = useState<string>(() => {
+    return customerLocation?.address || localStorage.getItem(STORAGE_KEY + '_userLocation') || 'Downtown Dubai, UAE';
+  });
+  const [userCoords, setUserCoords] = useState<{ latitude: number; longitude: number } | null>(() => {
+    if (customerLocation?.latitude && customerLocation?.longitude) {
+      return { latitude: customerLocation.latitude, longitude: customerLocation.longitude };
+    }
+    return { latitude: 25.2048, longitude: 55.2708 };
+  });
+  const [isLocationDetected, setIsLocationDetected] = useState<boolean>(Boolean(customerLocation?.isGpsAllowed));
 
   // Supabase Session State
   const [supabaseSession, setSupabaseSession] = useState<any>(null);
 
-  // Currency State
+  // Customer Currency State (Synced with customerLocation)
   const [currency, setCurrency] = useState<CurrencyInfo>(() => {
     const saved = localStorage.getItem(STORAGE_KEY + '_currency');
-    return saved ? JSON.parse(saved) : supportedCurrencies[0]; // INR default
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch {}
+    }
+    const country = getCountryByCode(customerLocation?.countryCode || 'AE');
+    return {
+      code: country.currencyCode,
+      symbol: country.currencySymbol,
+      name: country.currencyName,
+      rateFromINR: 1,
+      country: country.name,
+      flag: country.flag,
+      countryCode: country.code,
+      phoneCountryCode: country.phoneCountryCode
+    };
   });
 
   // Loaded Data from localStorage or Clean Real State
@@ -885,94 +1008,147 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setCustomerScreen('splash');
   };
 
-  // Haversine formula to compute distance in km between userCoords and a shop
+  // Precise Haversine formula to compute distance in km between customer coords and a shop
   const calculateDistanceToShop = (shop: BusinessShop): number => {
-    if (!userCoords || !shop.latitude || !shop.longitude) {
-      const match = (shop.distance || '').match(/([\d.]+)/);
-      return match ? parseFloat(match[1]) : 1.2;
-    }
-    const lat1 = userCoords.latitude;
-    const lon1 = userCoords.longitude;
+    const lat1 = customerLocation?.latitude ?? userCoords?.latitude;
+    const lon1 = customerLocation?.longitude ?? userCoords?.longitude;
     const lat2 = shop.latitude;
     const lon2 = shop.longitude;
 
-    const R = 6371; // Earth radius in km
-    const dLat = (lat2 - lat1) * (Math.PI / 180);
-    const dLon = (lon2 - lon1) * (Math.PI / 180);
-    const a =
-      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-      Math.cos(lat1 * (Math.PI / 180)) * Math.cos(lat2 * (Math.PI / 180)) *
-      Math.sin(dLon / 2) * Math.sin(dLon / 2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    return Math.round(R * c * 10) / 10;
+    if (lat1 !== undefined && lon1 !== undefined && lat2 !== undefined && lon2 !== undefined) {
+      return calculateHaversineDistance(lat1, lon1, lat2, lon2);
+    }
+    const match = (shop.distance || '').match(/([\d.]+)/);
+    return match ? parseFloat(match[1]) : 1.2;
   };
 
-  const mapCountryToCurrency = (countryCode: string): CurrencyInfo | undefined => {
-    const code = countryCode.toUpperCase();
-    return supportedCurrencies.find(c => {
-      if (code === 'IN' && c.code === 'INR') return true;
-      if (code === 'AE' && c.code === 'AED') return true;
-      if (code === 'US' && c.code === 'USD') return true;
-      if (code === 'GB' && c.code === 'GBP') return true;
-      if (['DE','FR','IT','ES','NL','BE','AT','GR','PT','IE','FI'].includes(code) && c.code === 'EUR') return true;
-      if (code === 'SG' && c.code === 'SGD') return true;
-      if (code === 'SA' && c.code === 'SAR') return true;
-      if (code === 'CA' && c.code === 'CAD') return true;
-      if (code === 'AU' && c.code === 'AUD') return true;
-      if (code === 'QA' && c.code === 'QAR') return true;
-      if (code === 'KW' && c.code === 'KWD') return true;
-      if (code === 'OM' && c.code === 'OMR') return true;
-      if (code === 'BH' && c.code === 'BHD') return true;
-      if (code === 'MY' && c.code === 'MYR') return true;
-      if (code === 'JP' && c.code === 'JPY') return true;
-      return false;
-    });
-  };
-
-  const applyTimezoneFallback = (lat?: number, lng?: number) => {
+  const getCountryByCoordsOrTimezone = (lat?: number, lng?: number): CountryInfo => {
+    if (lat !== undefined && lng !== undefined) {
+      if (lat >= 22 && lat <= 27 && lng >= 51 && lng <= 57) return getCountryByCode('AE');
+      if (lat >= 6 && lat <= 38 && lng >= 68 && lng <= 98) return getCountryByCode('IN');
+      if (lat >= 16 && lat <= 33 && lng >= 34 && lng <= 56) return getCountryByCode('SA');
+      if (lat >= 24 && lat <= 50 && lng >= -125 && lng <= -66) return getCountryByCode('US');
+      if (lat >= 49 && lat <= 61 && lng >= -9 && lng <= 2) return getCountryByCode('GB');
+      if (lat >= 1 && lat <= 2 && lng >= 103 && lng <= 104) return getCountryByCode('SG');
+    }
     const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || '';
-    let detectedCurrency = supportedCurrencies[0];
-    let detectedCity = '';
-
     if (timeZone.includes('Dubai') || timeZone.includes('Asia/Dubai') || timeZone.includes('Muscat')) {
-      detectedCurrency = supportedCurrencies.find(c => c.code === 'AED') || supportedCurrencies[1];
-      detectedCity = 'Downtown Dubai, UAE';
-    } else if (timeZone.includes('America') || timeZone.includes('New_York') || timeZone.includes('Los_Angeles') || timeZone.includes('Chicago')) {
-      detectedCurrency = supportedCurrencies.find(c => c.code === 'USD') || supportedCurrencies[2];
-      detectedCity = 'Manhattan, New York, USA';
-    } else if (timeZone.includes('London') || timeZone.includes('Europe/London')) {
-      detectedCurrency = supportedCurrencies.find(c => c.code === 'GBP') || supportedCurrencies[3];
-      detectedCity = 'Central London, UK';
-    } else if (timeZone.includes('Europe') || timeZone.includes('Paris') || timeZone.includes('Berlin') || timeZone.includes('Rome') || timeZone.includes('Madrid')) {
-      detectedCurrency = supportedCurrencies.find(c => c.code === 'EUR') || supportedCurrencies[4];
-      detectedCity = 'Western Europe';
-    } else if (timeZone.includes('Riyadh')) {
-      detectedCurrency = supportedCurrencies.find(c => c.code === 'SAR') || supportedCurrencies[6];
-      detectedCity = 'Riyadh, Saudi Arabia';
-    } else if (timeZone.includes('Singapore')) {
-      detectedCurrency = supportedCurrencies.find(c => c.code === 'SGD') || supportedCurrencies[5];
-      detectedCity = 'Orchard Road, Singapore';
-    } else if (timeZone.includes('Toronto') || timeZone.includes('Vancouver')) {
-      detectedCurrency = supportedCurrencies.find(c => c.code === 'CAD') || supportedCurrencies[2];
-      detectedCity = 'Toronto, Canada';
-    } else if (timeZone.includes('Sydney') || timeZone.includes('Melbourne')) {
-      detectedCurrency = supportedCurrencies.find(c => c.code === 'AUD') || supportedCurrencies[2];
-      detectedCity = 'Sydney, Australia';
-    } else {
-      detectedCurrency = supportedCurrencies[0];
-      detectedCity = lat && lng ? `Location (${lat.toFixed(2)}°N, ${lng.toFixed(2)}°E)` : '';
+      return getCountryByCode('AE');
     }
-
-    if (detectedCity) {
-      setUserLocation(detectedCity);
+    if (timeZone.includes('Calcutta') || timeZone.includes('Kolkata') || timeZone.includes('Asia/Kolkata')) {
+      return getCountryByCode('IN');
     }
-    setCurrency(detectedCurrency);
-    setIsLocationDetected(true);
+    if (timeZone.includes('Riyadh')) return getCountryByCode('SA');
+    if (timeZone.includes('London')) return getCountryByCode('GB');
+    if (timeZone.includes('New_York') || timeZone.includes('Los_Angeles') || timeZone.includes('Chicago')) return getCountryByCode('US');
+    if (timeZone.includes('Singapore')) return getCountryByCode('SG');
+    return supportedCountries[0]; // default AE/Dubai
   };
 
-  // Automatic Background GPS & IP Location and Currency Detection
-  const detectUserLocationAndCurrency = () => {
-    if ('geolocation' in navigator) {
+  // Request Customer Location with Multi-Layer Fallback (GPS -> IP -> Timezone)
+  const requestCustomerGpsLocation = async (): Promise<{ success: boolean; countryCode?: string; message?: string }> => {
+    return new Promise((resolve) => {
+      const fallbackToIpOrTimezone = async () => {
+        try {
+          // Layer 2: IP-based Network Geocoding (Works on laptops with Windows location turned OFF)
+          const ipRes = await fetch('https://api.bigdatacloud.net/data/client-info');
+          if (ipRes.ok) {
+            const data = await ipRes.json();
+            const countryCode = (data.countryCode || '').toUpperCase();
+            if (countryCode) {
+              const countryInfo = getCountryByCode(countryCode) || getCountryByName(data.countryName || '');
+              const city = data.city || countryInfo.defaultCity;
+
+              const updatedLoc: CustomerLocationData = {
+                address: `${city}, ${countryInfo.name}`,
+                city,
+                countryCode: countryInfo.code,
+                countryName: countryInfo.name,
+                currencyCode: countryInfo.currencyCode,
+                currencySymbol: countryInfo.currencySymbol,
+                phoneCountryCode: countryInfo.phoneCountryCode,
+                latitude: countryInfo.defaultLat,
+                longitude: countryInfo.defaultLng,
+                isGpsAllowed: true
+              };
+
+              setUserCoords({ latitude: countryInfo.defaultLat, longitude: countryInfo.defaultLng });
+              setCustomerLocation(updatedLoc);
+              setUserLocation(updatedLoc.address);
+              setCurrency({
+                code: countryInfo.currencyCode,
+                symbol: countryInfo.currencySymbol,
+                name: countryInfo.currencyName,
+                rateFromINR: 1,
+                country: countryInfo.name,
+                flag: countryInfo.flag,
+                countryCode: countryInfo.code,
+                phoneCountryCode: countryInfo.phoneCountryCode
+              });
+              setCustomer(prev => ({
+                ...prev,
+                countryCode: countryInfo.code,
+                countryName: countryInfo.name,
+                currencyCode: countryInfo.currencyCode,
+                currencySymbol: countryInfo.currencySymbol,
+                phoneCountryCode: countryInfo.phoneCountryCode,
+                latitude: countryInfo.defaultLat,
+                longitude: countryInfo.defaultLng
+              }));
+              setIsLocationDetected(true);
+              resolve({ success: true, countryCode: countryInfo.code });
+              return;
+            }
+          }
+        } catch {}
+
+        // Layer 3: System Timezone & Locale Geocoding
+        const tzCountry = getCountryByCoordsOrTimezone();
+        const updatedLoc: CustomerLocationData = {
+          address: `${tzCountry.defaultCity}, ${tzCountry.name}`,
+          city: tzCountry.defaultCity,
+          countryCode: tzCountry.code,
+          countryName: tzCountry.name,
+          currencyCode: tzCountry.currencyCode,
+          currencySymbol: tzCountry.currencySymbol,
+          phoneCountryCode: tzCountry.phoneCountryCode,
+          latitude: tzCountry.defaultLat,
+          longitude: tzCountry.defaultLng,
+          isGpsAllowed: true
+        };
+
+        setUserCoords({ latitude: tzCountry.defaultLat, longitude: tzCountry.defaultLng });
+        setCustomerLocation(updatedLoc);
+        setUserLocation(updatedLoc.address);
+        setCurrency({
+          code: tzCountry.currencyCode,
+          symbol: tzCountry.currencySymbol,
+          name: tzCountry.currencyName,
+          rateFromINR: 1,
+          country: tzCountry.name,
+          flag: tzCountry.flag,
+          countryCode: tzCountry.code,
+          phoneCountryCode: tzCountry.phoneCountryCode
+        });
+        setCustomer(prev => ({
+          ...prev,
+          countryCode: tzCountry.code,
+          countryName: tzCountry.name,
+          currencyCode: tzCountry.currencyCode,
+          currencySymbol: tzCountry.currencySymbol,
+          phoneCountryCode: tzCountry.phoneCountryCode,
+          latitude: tzCountry.defaultLat,
+          longitude: tzCountry.defaultLng
+        }));
+        setIsLocationDetected(true);
+        resolve({ success: true, countryCode: tzCountry.code });
+      };
+
+      if (!('geolocation' in navigator)) {
+        fallbackToIpOrTimezone();
+        return;
+      }
+
       navigator.geolocation.getCurrentPosition(
         async position => {
           const lat = position.coords.latitude;
@@ -983,65 +1159,217 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             const res = await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lng}&localityLanguage=en`);
             if (res.ok) {
               const geo = await res.json();
-              const countryCode = geo.countryCode || '';
-              const city = geo.city || geo.locality || geo.principalSubdivision || 'Nearby';
-              const country = geo.countryName || 'Current Location';
-              const matchedCurrency = mapCountryToCurrency(countryCode);
-              if (matchedCurrency) {
-                setCurrency(matchedCurrency);
-              }
-              setUserLocation(`${city}, ${country}`);
+              const countryCode = (geo.countryCode || '').toUpperCase();
+              const countryInfo = getCountryByCode(countryCode) || getCountryByName(geo.countryName || '');
+              const city = geo.city || geo.locality || geo.principalSubdivision || countryInfo.defaultCity || 'Nearby';
+              const countryName = geo.countryName || countryInfo.name;
+
+              const updatedLoc: CustomerLocationData = {
+                address: `${city}, ${countryName}`,
+                city,
+                countryCode: countryInfo.code,
+                countryName,
+                currencyCode: countryInfo.currencyCode,
+                currencySymbol: countryInfo.currencySymbol,
+                phoneCountryCode: countryInfo.phoneCountryCode,
+                latitude: lat,
+                longitude: lng,
+                isGpsAllowed: true
+              };
+
+              setCustomerLocation(updatedLoc);
+              setUserLocation(updatedLoc.address);
+              setCurrency({
+                code: countryInfo.currencyCode,
+                symbol: countryInfo.currencySymbol,
+                name: countryInfo.currencyName,
+                rateFromINR: 1,
+                country: countryInfo.name,
+                flag: countryInfo.flag,
+                countryCode: countryInfo.code,
+                phoneCountryCode: countryInfo.phoneCountryCode
+              });
+              setCustomer(prev => ({
+                ...prev,
+                countryCode: countryInfo.code,
+                countryName,
+                currencyCode: countryInfo.currencyCode,
+                currencySymbol: countryInfo.currencySymbol,
+                phoneCountryCode: countryInfo.phoneCountryCode,
+                latitude: lat,
+                longitude: lng
+              }));
               setIsLocationDetected(true);
+              resolve({ success: true, countryCode: countryInfo.code });
               return;
             }
           } catch {}
 
-          applyTimezoneFallback(lat, lng);
-        },
-        async _err => {
-          try {
-            const ipRes = await fetch('https://ipapi.co/json/');
-            if (ipRes.ok) {
-              const ipData = await ipRes.json();
-              const countryCode = ipData.country_code || '';
-              const city = ipData.city || 'Local Area';
-              const country = ipData.country_name || 'Current Country';
-              if (ipData.latitude && ipData.longitude) {
-                setUserCoords({ latitude: Number(ipData.latitude), longitude: Number(ipData.longitude) });
-              }
-              const matchedCurrency = mapCountryToCurrency(countryCode);
-              if (matchedCurrency) {
-                setCurrency(matchedCurrency);
-              }
-              setUserLocation(`${city}, ${country}`);
-              setIsLocationDetected(true);
-              return;
-            }
-          } catch {}
+          const fallbackCountry = getCountryByCoordsOrTimezone(lat, lng);
+          const updatedLoc: CustomerLocationData = {
+            address: `${fallbackCountry.defaultCity}, ${fallbackCountry.name}`,
+            city: fallbackCountry.defaultCity,
+            countryCode: fallbackCountry.code,
+            countryName: fallbackCountry.name,
+            currencyCode: fallbackCountry.currencyCode,
+            currencySymbol: fallbackCountry.currencySymbol,
+            phoneCountryCode: fallbackCountry.phoneCountryCode,
+            latitude: lat,
+            longitude: lng,
+            isGpsAllowed: true
+          };
 
-          applyTimezoneFallback();
+          setCustomerLocation(updatedLoc);
+          setUserLocation(updatedLoc.address);
+          setCurrency({
+            code: fallbackCountry.currencyCode,
+            symbol: fallbackCountry.currencySymbol,
+            name: fallbackCountry.currencyName,
+            rateFromINR: 1,
+            country: fallbackCountry.name,
+            flag: fallbackCountry.flag,
+            countryCode: fallbackCountry.code,
+            phoneCountryCode: fallbackCountry.phoneCountryCode
+          });
+          setCustomer(prev => ({
+            ...prev,
+            countryCode: fallbackCountry.code,
+            countryName: fallbackCountry.name,
+            currencyCode: fallbackCountry.currencyCode,
+            currencySymbol: fallbackCountry.currencySymbol,
+            phoneCountryCode: fallbackCountry.phoneCountryCode,
+            latitude: lat,
+            longitude: lng
+          }));
+          setIsLocationDetected(true);
+          resolve({ success: true, countryCode: fallbackCountry.code });
         },
-        { timeout: 5000, enableHighAccuracy: true }
+        async () => {
+          // If browser/Windows location hardware is turned off or timed out, seamlessly fallback to IP/Timezone
+          fallbackToIpOrTimezone();
+        },
+        { timeout: 4000, enableHighAccuracy: false }
       );
-    } else {
-      applyTimezoneFallback();
-    }
+    });
+  };
+
+  // Set Customer Manual Country (Used when location permission is denied or skipped)
+  const setCustomerManualCountry = (countryCodeOrName: string) => {
+    const countryInfo = getCountryByCode(countryCodeOrName) || getCountryByName(countryCodeOrName);
+    const updatedLoc: CustomerLocationData = {
+      address: `${countryInfo.defaultCity}, ${countryInfo.name}`,
+      city: countryInfo.defaultCity,
+      countryCode: countryInfo.code,
+      countryName: countryInfo.name,
+      currencyCode: countryInfo.currencyCode,
+      currencySymbol: countryInfo.currencySymbol,
+      phoneCountryCode: countryInfo.phoneCountryCode,
+      latitude: countryInfo.defaultLat,
+      longitude: countryInfo.defaultLng,
+      isGpsAllowed: false
+    };
+
+    setUserCoords({ latitude: countryInfo.defaultLat, longitude: countryInfo.defaultLng });
+    setCustomerLocation(updatedLoc);
+    setUserLocation(updatedLoc.address);
+    setCurrency({
+      code: countryInfo.currencyCode,
+      symbol: countryInfo.currencySymbol,
+      name: countryInfo.currencyName,
+      rateFromINR: 1,
+      country: countryInfo.name,
+      flag: countryInfo.flag,
+      countryCode: countryInfo.code,
+      phoneCountryCode: countryInfo.phoneCountryCode
+    });
+    setCustomer(prev => ({
+      ...prev,
+      countryCode: countryInfo.code,
+      countryName: countryInfo.name,
+      currencyCode: countryInfo.currencyCode,
+      currencySymbol: countryInfo.currencySymbol,
+      phoneCountryCode: countryInfo.phoneCountryCode,
+      latitude: countryInfo.defaultLat,
+      longitude: countryInfo.defaultLng
+    }));
+    setIsLocationDetected(true);
+  };
+
+  // Background Auto-Detection wrapper (Only runs on initial customer start if GPS is allowed or fallback needed)
+  const detectUserLocationAndCurrency = () => {
+    requestCustomerGpsLocation();
   };
 
   useEffect(() => {
-    detectUserLocationAndCurrency();
-  }, []);
+    // Sync customerLocation to localStorage
+    localStorage.setItem(STORAGE_KEY + '_customerLocation', JSON.stringify(customerLocation));
+  }, [customerLocation]);
 
-  // Universal Price Formatter
-  const formatPrice = (amountInINR: number): string => {
-    if (currency.code === 'INR') {
-      return `₹${Math.round(amountInINR).toLocaleString('en-IN')}`;
+  // Contextual Multi-Currency Price Formatter:
+  // Displays the native currency belonging to the specified business/salon or context
+  // Does NOT cross-convert or inflate/deflate prices.
+  const formatPrice = (amount: number, shopOrCurrency?: string | CurrencyInfo | CountryInfo | BusinessShop): string => {
+    const num = typeof amount === 'number' && !isNaN(amount) ? amount : 0;
+    
+    let symbol = '₹';
+    let code = 'INR';
+
+    if (shopOrCurrency) {
+      if (typeof shopOrCurrency === 'string') {
+        const foundCountry = supportedCountries.find(c => 
+          c.currencyCode.toUpperCase() === shopOrCurrency.toUpperCase() || 
+          c.currencySymbol === shopOrCurrency || 
+          c.code.toUpperCase() === shopOrCurrency.toUpperCase() || 
+          c.name.toLowerCase() === shopOrCurrency.toLowerCase()
+        );
+        const foundCurrency = supportedCurrencies.find(c => 
+          c.code.toUpperCase() === shopOrCurrency.toUpperCase() || 
+          c.symbol === shopOrCurrency
+        );
+        symbol = foundCountry?.currencySymbol || foundCurrency?.symbol || shopOrCurrency;
+        code = foundCountry?.currencyCode || foundCurrency?.code || shopOrCurrency;
+      } else if ('currencySymbol' in shopOrCurrency && shopOrCurrency.currencySymbol) {
+        symbol = shopOrCurrency.currencySymbol;
+        code = (shopOrCurrency as any).currency || (shopOrCurrency as any).currencyCode || 'INR';
+      } else if ('currency' in shopOrCurrency && (shopOrCurrency as any).currency) {
+        symbol = (shopOrCurrency as any).currency;
+        code = (shopOrCurrency as any).currency;
+      } else if ('symbol' in shopOrCurrency && shopOrCurrency.symbol) {
+        symbol = shopOrCurrency.symbol;
+        code = (shopOrCurrency as any).code || 'INR';
+      }
+    } else {
+      if (mode === 'business' && currentBusinessShop) {
+        symbol = currentBusinessShop.currencySymbol || currentBusinessShop.currency || (currentBusinessShop.country === 'United Arab Emirates' || currentBusinessShop.city === 'Dubai' ? 'AED' : '₹');
+        code = currentBusinessShop.currency || (currentBusinessShop.country === 'United Arab Emirates' || currentBusinessShop.city === 'Dubai' ? 'AED' : 'INR');
+      } else if (selectedShop) {
+        symbol = selectedShop.currencySymbol || selectedShop.currency || (selectedShop.country === 'United Arab Emirates' || selectedShop.city === 'Dubai' ? 'AED' : '₹');
+        code = selectedShop.currency || (selectedShop.country === 'United Arab Emirates' || selectedShop.city === 'Dubai' ? 'AED' : 'INR');
+      } else {
+        symbol = customerLocation?.currencySymbol || currency.symbol || 'AED';
+        code = customerLocation?.currencyCode || currency.code || 'AED';
+      }
     }
-    const converted = amountInINR * currency.rateFromINR;
-    if (converted < 10) {
-      return `${currency.symbol} ${converted.toFixed(2)}`;
+
+    if (code === 'INR' || symbol === '₹') {
+      return `₹${Math.round(num).toLocaleString('en-IN')}`;
     }
-    return `${currency.symbol} ${Math.round(converted)}`;
+    if (code === 'AED' || symbol === 'AED') {
+      return `AED ${Math.round(num).toLocaleString()}`;
+    }
+    if (code === 'SAR' || symbol === 'SAR') {
+      return `SAR ${Math.round(num).toLocaleString()}`;
+    }
+    if (code === 'USD' || symbol === '$') {
+      return `$${Math.round(num).toLocaleString()}`;
+    }
+    if (code === 'GBP' || symbol === '£') {
+      return `£${Math.round(num).toLocaleString()}`;
+    }
+    if (code === 'EUR' || symbol === '€') {
+      return `€${Math.round(num).toLocaleString()}`;
+    }
+    return `${symbol} ${Math.round(num).toLocaleString()}`;
   };
 
   // Screen Navigators with tab synchronization
@@ -2120,6 +2448,34 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const targetEmail = (shopData.email || supabaseSession?.user?.email || customer.email || '').trim().toLowerCase();
     const targetOwnerName = shopData.ownerName || customer.name || supabaseSession?.user?.user_metadata?.full_name || 'Shop Owner';
 
+    let finalLat = shopData.latitude;
+    let finalLng = shopData.longitude;
+    let finalMapsUrl = shopData.googleMapsUrl;
+    let finalPlaceId = shopData.googlePlaceId;
+
+    if (finalMapsUrl) {
+      const parsed = parseCoordinatesFromMapUrl(finalMapsUrl);
+      if (parsed) {
+        finalLat = parsed.latitude;
+        finalLng = parsed.longitude;
+        finalMapsUrl = parsed.formattedUrl;
+        if (parsed.placeId) finalPlaceId = parsed.placeId;
+      }
+    }
+
+    const resolved = (finalLat !== undefined && finalLng !== undefined)
+      ? resolveCountryFromCoordinates(finalLat, finalLng)
+      : (shopData.countryCode ? getCountryByCode(shopData.countryCode) : supportedCountries[0]);
+
+    if (finalLat === undefined || finalLng === undefined) {
+      finalLat = resolved.defaultLat;
+      finalLng = resolved.defaultLng;
+    }
+
+    if (!finalMapsUrl) {
+      finalMapsUrl = `https://maps.google.com/?q=${finalLat.toFixed(6)},${finalLng.toFixed(6)}`;
+    }
+
     const newShop: BusinessShop = {
       id: shopData.id || ('shop-' + Date.now()),
       ownerId: targetOwnerId,
@@ -2128,8 +2484,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       phone: shopData.phone || '',
       email: targetEmail,
       address: shopData.address || '',
-      city: shopData.city || '',
-      country: shopData.country || 'India',
+      city: shopData.city || resolved.defaultCity,
+      country: shopData.country || resolved.name,
+      countryCode: shopData.countryCode || resolved.code,
+      currency: shopData.currency || resolved.currencyCode,
+      currencySymbol: shopData.currencySymbol || resolved.currencySymbol,
+      phoneCountryCode: shopData.phoneCountryCode || resolved.phoneCountryCode,
       businessType: shopData.businessType || ['Salon', 'Barber'],
       staffCount: Number(shopData.staffCount) || 3,
       openingTime: shopData.openingTime || '09:00 AM',
@@ -2147,7 +2507,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       tradeLicenseDocumentUrl: shopData.tradeLicenseDocumentUrl,
       taxVatDocumentUrl: shopData.taxVatDocumentUrl,
       isVerified: true,
-      googleMapsUrl: shopData.googleMapsUrl || (shopData.address ? `https://maps.google.com/?q=${encodeURIComponent(shopData.address)}` : '')
+      googleMapsUrl: finalMapsUrl,
+      googlePlaceId: finalPlaceId,
+      latitude: finalLat,
+      longitude: finalLng
     };
 
     setShops(prev => [newShop, ...prev.filter(s => s.id !== newShop.id)]);
@@ -2221,7 +2584,42 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const updateShopSettings = async (settings: Partial<BusinessShop>) => {
     const targetShopId = currentBusinessShop.id && currentBusinessShop.id.trim() !== '' ? currentBusinessShop.id : 'shop-' + Date.now();
     const targetOwnerId = supabaseSession?.user?.id || currentBusinessShop.ownerId;
-    const updated: BusinessShop = { ...currentBusinessShop, id: targetShopId, ownerId: targetOwnerId, ...settings };
+
+    let finalLat = settings.latitude ?? currentBusinessShop.latitude;
+    let finalLng = settings.longitude ?? currentBusinessShop.longitude;
+    let finalMapsUrl = settings.googleMapsUrl ?? currentBusinessShop.googleMapsUrl;
+    let finalPlaceId = settings.googlePlaceId ?? currentBusinessShop.googlePlaceId;
+
+    if (settings.googleMapsUrl) {
+      const parsed = parseCoordinatesFromMapUrl(settings.googleMapsUrl);
+      if (parsed) {
+        finalLat = parsed.latitude;
+        finalLng = parsed.longitude;
+        finalMapsUrl = parsed.formattedUrl;
+        if (parsed.placeId) finalPlaceId = parsed.placeId;
+      }
+    }
+
+    const resolved = (finalLat !== undefined && finalLng !== undefined)
+      ? resolveCountryFromCoordinates(finalLat, finalLng)
+      : (settings.countryCode ? getCountryByCode(settings.countryCode) : supportedCountries[0]);
+
+    const updated: BusinessShop = { 
+      ...currentBusinessShop, 
+      id: targetShopId, 
+      ownerId: targetOwnerId, 
+      ...settings,
+      latitude: finalLat,
+      longitude: finalLng,
+      googleMapsUrl: finalMapsUrl,
+      googlePlaceId: finalPlaceId,
+      country: settings.country || resolved.name,
+      countryCode: settings.countryCode || resolved.code,
+      currency: settings.currency || resolved.currencyCode,
+      currencySymbol: settings.currencySymbol || resolved.currencySymbol,
+      phoneCountryCode: settings.phoneCountryCode || resolved.phoneCountryCode
+    };
+
     setCurrentBusinessShop(updated);
     setShops(prev => {
       const exists = prev.some(s => s.id === targetShopId || (s.email && updated.email && s.email.toLowerCase() === updated.email.toLowerCase()));
@@ -2421,11 +2819,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setAuthInitialRole,
         authInitialTab,
         setAuthInitialTab,
+        customerLocation,
         userLocation,
         setUserLocation,
         userCoords,
         isLocationDetected,
+        isLocationModalOpen,
+        setIsLocationModalOpen,
         detectUserLocationAndCurrency,
+        requestCustomerGpsLocation,
+        setCustomerManualCountry,
         calculateDistanceToShop,
         supabaseSession,
         checkAuthSession,
@@ -2520,6 +2923,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         bulkApplyDiscountToAllServices,
         createShopOffer,
         deleteOffer,
+        theme,
+        setTheme,
         resetDemoData
       }}
     >

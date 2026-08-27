@@ -22,8 +22,11 @@ export const DateTimeScreen: React.FC = () => {
     selectedTimeSlot, 
     setSelectedTimeSlot, 
     setCustomerScreen,
-    formatBookingDate 
+    formatBookingDate,
+    theme
   } = useApp();
+
+  const isWhite = theme === 'white';
 
   const [liveCurrentTime, setLiveCurrentTime] = useState<string>('');
 
@@ -85,7 +88,6 @@ export const DateTimeScreen: React.FC = () => {
   const isSlotPassed = (slotTimeStr: string, dateIso: string): boolean => {
     const todayIso = dates[0]?.full;
     if (dateIso !== todayIso) {
-      // Future dates are always fully open
       return false;
     }
 
@@ -101,42 +103,48 @@ export const DateTimeScreen: React.FC = () => {
       if (ampm === 'AM' && hours === 12) hours = 0;
 
       const now = new Date();
-      const slotDate = new Date();
-      slotDate.setHours(hours, minutes, 0, 0);
+      const slotTime = new Date();
+      slotTime.setHours(hours, minutes, 0, 0);
 
-      // 10 minutes buffer so customers cannot book a slot starting in the past or immediately right now
-      return now.getTime() + 10 * 60 * 1000 > slotDate.getTime();
+      // Disable if slot is strictly before now + 15 minutes buffer
+      return slotTime.getTime() <= (now.getTime() + 15 * 60 * 1000);
     } catch {
       return false;
     }
   };
 
+  // Check if today is selected and all slots for today have already passed
   const isTodaySelected = selectedDate === dates[0]?.full;
-  const passedTodayCount = isTodaySelected ? allSlots.filter(s => isSlotPassed(s, selectedDate)).length : 0;
-  const areAllTodaySlotsPassed = isTodaySelected && passedTodayCount === allSlots.length;
+  const areAllTodaySlotsPassed = isTodaySelected && allSlots.every(slot => isSlotPassed(slot, selectedDate));
 
-  // Automatically select the next available future slot when selecting Today
+  // Initialize with a valid non-passed slot
   useEffect(() => {
-    if (isTodaySelected) {
-      if (isSlotPassed(selectedTimeSlot, selectedDate)) {
-        const nextAvailable = allSlots.find(s => !isSlotPassed(s, selectedDate));
-        if (nextAvailable) {
-          setSelectedTimeSlot(nextAvailable);
-        } else if (dates[1]) {
-          // If tonight's slots have all passed, auto switch to tomorrow's first slot
-          setSelectedDate(dates[1].full);
-          setSelectedTimeSlot(morningSlots[0]);
-        }
+    if (!selectedDate) {
+      setSelectedDate(dates[0]?.full || '');
+    }
+
+    const currentSlotPassed = isSlotPassed(selectedTimeSlot, selectedDate);
+    if (currentSlotPassed || !selectedTimeSlot) {
+      // Find first available slot
+      const firstAvailable = allSlots.find(s => !isSlotPassed(s, selectedDate));
+      if (firstAvailable) {
+        setSelectedTimeSlot(firstAvailable);
+      } else if (isTodaySelected && dates[1]) {
+        // If today is completely booked/passed, auto-switch to Tomorrow morning!
+        setSelectedDate(dates[1].full);
+        setSelectedTimeSlot(morningSlots[0]);
       }
     }
   }, [selectedDate]);
 
+  // Instant 15-min walk-in handler
   const handleInstantLiveWalkin = () => {
     const now = new Date();
-    const todayIso = dates[0]?.full || new Date().toISOString().split('T')[0];
+    const todayIso = dates[0]?.full;
     
-    // If working hours for today are done (> 8:30 PM), book for tomorrow morning
-    if (now.getHours() >= 20 && now.getMinutes() >= 30) {
+    // Check if salon is still open (before 08:30 PM)
+    if (now.getHours() >= 20 && now.getMinutes() > 30) {
+      alert('Salon is currently closed for today (open 09:00 AM - 09:00 PM). Booking for tomorrow instead!');
       if (dates[1]) {
         setSelectedDate(dates[1].full);
         setSelectedTimeSlot(morningSlots[0]);
@@ -144,11 +152,11 @@ export const DateTimeScreen: React.FC = () => {
       return;
     }
 
-    setSelectedDate(todayIso);
+    setSelectedDate(todayIso || '');
 
     // Calculate nearest 15-minute slot
     const minutes = now.getMinutes();
-    const roundedMinutes = Math.ceil(minutes / 15) * 15 + 15;
+    const roundedMinutes = Math.ceil(minutes / 15) * 15;
     now.setMinutes(roundedMinutes);
     const instantSlot = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
     
@@ -156,50 +164,70 @@ export const DateTimeScreen: React.FC = () => {
   };
 
   return (
-    <div className="min-h-full pb-28 bg-[#0A0A0F] text-white flex flex-col justify-between">
+    <div className={`min-h-full pb-28 font-body flex flex-col justify-between transition-colors duration-300 ${
+      isWhite ? 'bg-[#F8F9FD] text-[#111827]' : 'bg-[#08080C] text-[#F3F4F6]'
+    }`}>
       <div>
         {/* Top Header */}
-        <div className="sticky top-0 z-30 bg-[#0A0A0F]/95 backdrop-blur-md px-4 py-3 border-b border-white/5 flex items-center justify-between">
+        <div className={`sticky top-0 z-30 backdrop-blur-xl px-4 py-3 flex items-center justify-between shadow-sm transition-colors duration-300 ${
+          isWhite 
+            ? 'bg-white/95 border-b border-purple-100 shadow-[0_2px_12px_rgba(126,34,206,0.04)]' 
+            : 'bg-[#0A0A10]/95 border-b border-gold-400/15'
+        }`}>
           <div className="flex items-center gap-3">
             <button
               onClick={() => setCustomerScreen('select_staff')}
-              className="w-8 h-8 rounded-full bg-[#181824] border border-white/10 flex items-center justify-center text-gray-300 hover:text-white"
+              className={`w-8 h-8 rounded-full flex items-center justify-center transition-all ${
+                isWhite 
+                  ? 'bg-purple-50 border border-purple-200 text-purple-700 hover:bg-purple-100' 
+                  : 'bg-[#14141E] border border-white/10 text-gray-300 hover:text-gold-300 hover:border-gold-400/30'
+              }`}
             >
               <ArrowLeft className="w-4 h-4" />
             </button>
             <div>
-              <h2 className="font-heading text-base font-bold text-white">
+              <h2 className={`font-heading text-base font-black ${isWhite ? 'text-gray-900' : 'text-white'}`}>
                 Live Date & Time
               </h2>
-              <p className="text-[10px] text-gold-400">
+              <p className={`text-[10px] font-bold ${isWhite ? 'text-purple-700' : 'text-gold-300'}`}>
                 Step 3 of 4 • Real-time slot booking
               </p>
             </div>
           </div>
 
           {selectedStylist && (
-            <div className="flex items-center gap-1.5 bg-[#161622] px-2.5 py-1 rounded-full border border-gold-400/20 text-[10px] text-gray-300">
-              <UserCheck className="w-3 h-3 text-gold-400" />
-              <span className="truncate max-w-[80px]">{selectedStylist.name}</span>
+            <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] shadow-sm border ${
+              isWhite 
+                ? 'bg-purple-50 border-purple-200 text-purple-800' 
+                : 'bg-[#14141E] border-gold-400/25 text-gray-300'
+            }`}>
+              <UserCheck className={`w-3 h-3 ${isWhite ? 'text-purple-600' : 'text-gold-400'}`} />
+              <span className="truncate max-w-[80px] font-bold">{selectedStylist.name}</span>
             </div>
           )}
         </div>
 
         <div className="px-4 pt-4 space-y-4">
           {/* Live Clock & Instant Walk-in Banner */}
-          <div className="bg-gradient-to-r from-[#2B2211] via-[#1B1925] to-[#12121A] p-3.5 rounded-2xl border border-gold-400/30 shadow-gold-sm flex items-center justify-between">
+          <div className={`p-3.5 rounded-2xl border flex items-center justify-between shadow-sm ${
+            isWhite 
+              ? 'bg-gradient-to-r from-purple-50 via-white to-purple-50 border-purple-200 shadow-sm' 
+              : 'glass-card-gilded border-gold-400/35 shadow-gold-sm'
+          }`}>
             <div className="flex items-center gap-2.5">
-              <div className="w-9 h-9 rounded-xl bg-gold-400/20 text-gold-400 flex items-center justify-center font-bold">
+              <div className={`w-9 h-9 rounded-xl flex items-center justify-center font-bold shadow-sm ${
+                isWhite ? 'bg-purple-100 text-purple-700' : 'bg-gold-400/20 text-gold-300'
+              }`}>
                 <Clock className="w-4 h-4 animate-spin-slow" />
               </div>
               <div>
                 <div className="flex items-center gap-1.5">
-                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                  <span className="text-[10px] text-gray-400 font-semibold uppercase tracking-wider">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                  <span className={`text-[10px] font-bold uppercase tracking-widest ${isWhite ? 'text-gray-600' : 'text-gray-400'}`}>
                     Live Salon Time
                   </span>
                 </div>
-                <span className="font-heading font-extrabold text-sm text-gold-300">
+                <span className={`font-heading font-black text-sm ${isWhite ? 'text-purple-700' : 'text-gold-300'}`}>
                   {liveCurrentTime || 'Loading...'}
                 </span>
               </div>
@@ -207,7 +235,11 @@ export const DateTimeScreen: React.FC = () => {
 
             <button
               onClick={handleInstantLiveWalkin}
-              className="gold-gradient-btn px-3 py-1.5 rounded-xl text-[11px] font-bold flex items-center gap-1 shadow-md hover:brightness-110"
+              className={`px-3 py-1.5 rounded-xl text-[11px] font-bold flex items-center gap-1 shadow-md hover:brightness-110 active:scale-95 transition-all ${
+                isWhite 
+                  ? 'bg-gradient-to-r from-purple-600 to-pink-500 text-white' 
+                  : 'gold-gradient-btn text-black'
+              }`}
               title="Book for today within the next 15 minutes"
             >
               <Zap className="w-3.5 h-3.5" />
@@ -217,8 +249,8 @@ export const DateTimeScreen: React.FC = () => {
 
           {/* If all today's slots have passed */}
           {areAllTodaySlotsPassed && (
-            <div className="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-3 text-xs text-amber-300 flex items-center gap-2">
-              <Sparkles className="w-4 h-4 shrink-0 text-amber-400" />
+            <div className="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-3 text-xs text-amber-600 dark:text-amber-300 flex items-center gap-2 shadow-sm font-medium">
+              <Sparkles className="w-4 h-4 shrink-0 text-amber-500" />
               <span>All appointment slots for today have ended. Please choose tomorrow or a future date.</span>
             </div>
           )}
@@ -226,11 +258,11 @@ export const DateTimeScreen: React.FC = () => {
           {/* Dynamic 14-Day Calendar Date Picker */}
           <div>
             <div className="flex items-center justify-between mb-2">
-              <h3 className="font-heading text-xs font-bold text-white flex items-center gap-1.5">
-                <CalendarIcon className="w-3.5 h-3.5 text-gold-400" />
+              <h3 className={`font-heading text-xs font-bold flex items-center gap-1.5 ${isWhite ? 'text-gray-900' : 'text-white'}`}>
+                <CalendarIcon className={`w-3.5 h-3.5 ${isWhite ? 'text-purple-600' : 'text-gold-400'}`} />
                 Select Appointment Date
               </h3>
-              <span className="text-[10px] text-gold-400 font-bold">
+              <span className={`text-[10px] font-black ${isWhite ? 'text-purple-700' : 'text-gold-300'}`}>
                 {formatBookingDate(selectedDate)}
               </span>
             </div>
@@ -242,26 +274,32 @@ export const DateTimeScreen: React.FC = () => {
                   <button
                     key={d.full}
                     onClick={() => setSelectedDate(d.full)}
-                    className={`flex flex-col items-center justify-center min-w-[62px] py-3 rounded-2xl border transition-all duration-200 relative ${
+                    className={`flex flex-col items-center justify-center min-w-[62px] py-3 rounded-2xl border transition-all duration-300 relative ${
                       isSelected
-                        ? 'bg-gradient-to-b from-gold-500 to-gold-400 text-black border-gold-300 font-bold shadow-gold-sm scale-105'
-                        : 'bg-[#14141E] text-gray-400 border-white/10 hover:border-white/20'
+                        ? isWhite
+                          ? 'bg-gradient-to-br from-purple-600 to-pink-500 text-white font-bold shadow-md scale-105 ring-2 ring-purple-300 border-transparent'
+                          : 'gold-gradient-btn border-gold-300 font-bold shadow-gold-sm scale-105 ring-2 ring-gold-400/40 text-black'
+                        : isWhite
+                          ? 'bg-white text-gray-700 border-purple-100 hover:border-purple-300 hover:text-purple-700 shadow-sm'
+                          : 'bg-[#14141E] text-gray-400 border-white/10 hover:border-gold-400/25 hover:text-gray-200'
                     }`}
                   >
                     {d.labelTag && (
-                      <span className={`absolute -top-1.5 text-[8px] font-black uppercase px-1.5 py-0.2 rounded-full ${
-                        isSelected ? 'bg-black text-gold-400' : 'bg-gold-400 text-black'
+                      <span className={`absolute -top-1.5 text-[8px] font-black uppercase px-1.5 py-0.2 rounded-full shadow-sm ${
+                        isSelected 
+                          ? isWhite ? 'bg-white text-purple-700' : 'bg-black text-gold-300' 
+                          : isWhite ? 'bg-purple-600 text-white' : 'bg-gold-400 text-black'
                       }`}>
                         {d.labelTag}
                       </span>
                     )}
-                    <span className="text-[10px] uppercase font-semibold">
+                    <span className="text-[10px] uppercase font-bold">
                       {d.day}
                     </span>
-                    <span className="text-base font-extrabold mt-0.5">
+                    <span className="text-base font-black mt-0.5 font-heading">
                       {d.date}
                     </span>
-                    <span className="text-[9px] opacity-80">
+                    <span className="text-[9px] font-medium opacity-85">
                       {d.month}
                     </span>
                   </button>
@@ -270,17 +308,17 @@ export const DateTimeScreen: React.FC = () => {
             </div>
           </div>
 
-          {/* Time Slots Section with Auto Past-Disabling */}
+          {/* Time Slots Section */}
           <div className="space-y-4 pt-1">
             {/* Morning */}
             <div>
-              <div className="flex items-center justify-between text-xs text-gray-400 font-semibold mb-2">
+              <div className={`flex items-center justify-between text-xs font-bold mb-2 ${isWhite ? 'text-gray-700' : 'text-gray-300'}`}>
                 <div className="flex items-center gap-1.5">
-                  <Sun className="w-3.5 h-3.5 text-amber-400" />
+                  <Sun className="w-3.5 h-3.5 text-amber-500" />
                   <span>Morning Slots (09:00 AM - 12:00 PM)</span>
                 </div>
                 {isTodaySelected && (
-                  <span className="text-[10px] text-gray-500">Auto-filtered</span>
+                  <span className={`text-[10px] font-medium ${isWhite ? 'text-gray-500' : 'text-gray-400'}`}>Auto-filtered</span>
                 )}
               </div>
               <div className="grid grid-cols-3 gap-2">
@@ -292,12 +330,16 @@ export const DateTimeScreen: React.FC = () => {
                       key={slot}
                       disabled={isPassed}
                       onClick={() => setSelectedTimeSlot(slot)}
-                      className={`py-2 rounded-xl text-xs font-semibold border transition-all ${
+                      className={`py-2 rounded-xl text-xs font-bold border transition-all ${
                         isPassed
-                          ? 'bg-[#0E0E16] text-gray-600 border-white/5 cursor-not-allowed opacity-35 line-through'
+                          ? isWhite ? 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed opacity-40 line-through' : 'bg-[#0E0E16] text-gray-600 border-white/5 cursor-not-allowed opacity-35 line-through'
                           : isSelected
-                          ? 'bg-gold-400 text-black border-gold-400 font-extrabold shadow-sm scale-105'
-                          : 'bg-[#14141E] text-gray-300 border-white/10 hover:border-white/20 hover:text-white'
+                          ? isWhite 
+                            ? 'bg-purple-600 text-white border-purple-600 font-black shadow-md scale-105' 
+                            : 'gold-gradient-btn border-gold-400 font-extrabold shadow-sm scale-105 text-black'
+                          : isWhite 
+                            ? 'bg-white text-gray-800 border-purple-100 hover:border-purple-300 hover:text-purple-700 shadow-sm' 
+                            : 'bg-[#14141E] text-gray-200 border-white/10 hover:border-gold-400/30 hover:text-white'
                       }`}
                       title={isPassed ? `${slot} has already passed for today` : `Book at ${slot}`}
                     >
@@ -310,9 +352,9 @@ export const DateTimeScreen: React.FC = () => {
 
             {/* Afternoon */}
             <div>
-              <div className="flex items-center justify-between text-xs text-gray-400 font-semibold mb-2">
+              <div className={`flex items-center justify-between text-xs font-bold mb-2 ${isWhite ? 'text-gray-700' : 'text-gray-300'}`}>
                 <div className="flex items-center gap-1.5">
-                  <Sunset className="w-3.5 h-3.5 text-gold-400" />
+                  <Sunset className={`w-3.5 h-3.5 ${isWhite ? 'text-purple-600' : 'text-gold-400'}`} />
                   <span>Afternoon Slots (12:00 PM - 05:00 PM)</span>
                 </div>
               </div>
@@ -325,12 +367,16 @@ export const DateTimeScreen: React.FC = () => {
                       key={slot}
                       disabled={isPassed}
                       onClick={() => setSelectedTimeSlot(slot)}
-                      className={`py-2 rounded-xl text-xs font-semibold border transition-all ${
+                      className={`py-2 rounded-xl text-xs font-bold border transition-all ${
                         isPassed
-                          ? 'bg-[#0E0E16] text-gray-600 border-white/5 cursor-not-allowed opacity-35 line-through'
+                          ? isWhite ? 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed opacity-40 line-through' : 'bg-[#0E0E16] text-gray-600 border-white/5 cursor-not-allowed opacity-35 line-through'
                           : isSelected
-                          ? 'bg-gold-400 text-black border-gold-400 font-extrabold shadow-sm scale-105'
-                          : 'bg-[#14141E] text-gray-300 border-white/10 hover:border-white/20 hover:text-white'
+                          ? isWhite 
+                            ? 'bg-purple-600 text-white border-purple-600 font-black shadow-md scale-105' 
+                            : 'gold-gradient-btn border-gold-400 font-extrabold shadow-sm scale-105 text-black'
+                          : isWhite 
+                            ? 'bg-white text-gray-800 border-purple-100 hover:border-purple-300 hover:text-purple-700 shadow-sm' 
+                            : 'bg-[#14141E] text-gray-200 border-white/10 hover:border-gold-400/30 hover:text-white'
                       }`}
                       title={isPassed ? `${slot} has already passed for today` : `Book at ${slot}`}
                     >
@@ -343,9 +389,9 @@ export const DateTimeScreen: React.FC = () => {
 
             {/* Evening */}
             <div>
-              <div className="flex items-center justify-between text-xs text-gray-400 font-semibold mb-2">
+              <div className={`flex items-center justify-between text-xs font-bold mb-2 ${isWhite ? 'text-gray-700' : 'text-gray-300'}`}>
                 <div className="flex items-center gap-1.5">
-                  <Moon className="w-3.5 h-3.5 text-blue-400" />
+                  <Moon className="w-3.5 h-3.5 text-blue-500" />
                   <span>Evening & Night Slots (05:00 PM - 09:00 PM)</span>
                 </div>
               </div>
@@ -358,12 +404,16 @@ export const DateTimeScreen: React.FC = () => {
                       key={slot}
                       disabled={isPassed}
                       onClick={() => setSelectedTimeSlot(slot)}
-                      className={`py-2 rounded-xl text-xs font-semibold border transition-all ${
+                      className={`py-2 rounded-xl text-xs font-bold border transition-all ${
                         isPassed
-                          ? 'bg-[#0E0E16] text-gray-600 border-white/5 cursor-not-allowed opacity-35 line-through'
+                          ? isWhite ? 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed opacity-40 line-through' : 'bg-[#0E0E16] text-gray-600 border-white/5 cursor-not-allowed opacity-35 line-through'
                           : isSelected
-                          ? 'bg-gold-400 text-black border-gold-400 font-extrabold shadow-sm scale-105'
-                          : 'bg-[#14141E] text-gray-300 border-white/10 hover:border-white/20 hover:text-white'
+                          ? isWhite 
+                            ? 'bg-purple-600 text-white border-purple-600 font-black shadow-md scale-105' 
+                            : 'gold-gradient-btn border-gold-400 font-extrabold shadow-sm scale-105 text-black'
+                          : isWhite 
+                            ? 'bg-white text-gray-800 border-purple-100 hover:border-purple-300 hover:text-purple-700 shadow-sm' 
+                            : 'bg-[#14141E] text-gray-200 border-white/10 hover:border-gold-400/30 hover:text-white'
                       }`}
                       title={isPassed ? `${slot} has already passed for today` : `Book at ${slot}`}
                     >
@@ -377,21 +427,33 @@ export const DateTimeScreen: React.FC = () => {
         </div>
       </div>
 
-      {/* Floating Bottom Bar showing selected Live Date & Time */}
-      <div className="p-4 sticky bottom-0 bg-[#0A0A0F]/95 backdrop-blur-md border-t border-white/5 z-40">
+      {/* Floating Bottom Bar */}
+      <div className={`p-4 sticky bottom-0 backdrop-blur-xl border-t z-40 transition-colors duration-300 ${
+        isWhite 
+          ? 'bg-white/95 border-purple-100 shadow-[0_-4px_25px_rgba(126,34,206,0.08)]' 
+          : 'bg-[#0A0A10]/95 border-gold-400/20 shadow-[0_-4px_25px_rgba(0,0,0,0.8)]'
+      }`}>
         <div className="flex items-center justify-between mb-2">
           <div>
-            <span className="text-[10px] text-gray-400 uppercase tracking-wider block">
+            <span className={`text-[10px] uppercase tracking-widest block font-bold ${
+              isWhite ? 'text-gray-500' : 'text-gray-400'
+            }`}>
               Selected Slot
             </span>
-            <span className="text-xs font-bold text-gold-400 font-heading">
+            <span className={`text-xs font-black font-heading ${
+              isWhite ? 'text-purple-700' : 'text-gold-300'
+            }`}>
               {formatBookingDate(selectedDate)} at {selectedTimeSlot}
             </span>
           </div>
 
           <button
             onClick={() => setCustomerScreen('add_ons')}
-            className="gold-gradient-btn px-6 py-3 rounded-2xl text-xs font-bold flex items-center gap-2 shadow-gold-sm hover:brightness-110 active:scale-95 transition-all"
+            className={`px-6 py-3 rounded-2xl text-xs font-bold flex items-center gap-2 shadow-md hover:brightness-110 active:scale-95 transition-all ${
+              isWhite 
+                ? 'bg-gradient-to-r from-purple-600 to-pink-500 hover:from-purple-700 hover:to-pink-600 text-white' 
+                : 'gold-gradient-btn text-black shadow-gold-sm'
+            }`}
           >
             <span>Confirm & Continue</span>
             <ArrowRight className="w-4 h-4" />

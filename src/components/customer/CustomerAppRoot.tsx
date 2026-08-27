@@ -20,7 +20,8 @@ import { ProfileScreen } from './ProfileScreen';
 import { CustomerBottomNav } from '../layout/CustomerBottomNav';
 
 export const CustomerAppRoot: React.FC = () => {
-  const { customerScreen, customer, setCustomerScreen } = useApp();
+  const { customerScreen, customer, setCustomerScreen, theme } = useApp();
+  const isWhite = theme === 'white';
 
   // Auto-advance authenticated users to Home from splash/auth
   useEffect(() => {
@@ -82,7 +83,9 @@ export const CustomerAppRoot: React.FC = () => {
   ].includes(customerScreen);
 
   return (
-    <div className="flex flex-col h-full bg-[#0A0A0F] text-white select-none">
+    <div className={`flex flex-col h-full select-none transition-colors duration-300 ${
+      isWhite ? 'bg-[#F8F9FD] text-[#111827]' : 'bg-[#0A0A0F] text-white'
+    }`}>
       <div className="flex-1 overflow-y-auto no-scrollbar">
         {renderScreen()}
       </div>

@@ -84,13 +84,13 @@ export const AppointmentsManager: React.FC = () => {
   };
 
   return (
-    <div className="min-h-full pb-24 bg-[#0A0A0F] text-white">
+    <div className="min-h-full pb-24 bg-[#08080C] text-[#F3F4F6] font-body">
       {/* Top Header */}
-      <div className="sticky top-0 z-30 bg-[#0A0A0F]/95 backdrop-blur-md px-4 py-3 border-b border-white/5 flex items-center justify-between">
+      <div className="sticky top-0 z-30 bg-[#0A0A10]/95 backdrop-blur-xl px-4 py-3 border-b border-gold-400/15 flex items-center justify-between shadow-sm">
         <div className="flex items-center gap-3">
           <button
             onClick={() => setBusinessScreen('dashboard')}
-            className="w-8 h-8 rounded-full bg-[#181824] border border-white/10 flex items-center justify-center text-gray-300 hover:text-white"
+            className="w-8 h-8 rounded-full bg-[#14141E] border border-white/10 flex items-center justify-center text-gray-300 hover:text-gold-300 hover:border-gold-400/30 transition-all"
           >
             <ArrowLeft className="w-4 h-4" />
           </button>
@@ -98,26 +98,26 @@ export const AppointmentsManager: React.FC = () => {
             <h2 className="font-heading text-base font-bold text-white">
               Appointment Manager
             </h2>
-            <p className="text-[10px] text-gold-400">Accept & Manage Client Queue</p>
+            <p className="text-[10px] text-gold-300 font-semibold">Accept & Manage Client Queue</p>
           </div>
         </div>
       </div>
 
       <div className="px-4 pt-4 space-y-4">
         {/* Tab Switcher */}
-        <div className="flex bg-[#161622] p-1 rounded-xl border border-white/5">
+        <div className="flex bg-[#14141E] p-1 rounded-xl border border-white/10 shadow-inner">
           <button
             onClick={() => setActiveTab('pending')}
             className={`relative flex-1 py-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
               activeTab === 'pending'
-                ? 'bg-gradient-to-r from-gold-500 to-gold-400 text-black shadow-md'
+                ? 'gold-gradient-btn'
                 : 'text-gray-400 hover:text-white'
             }`}
           >
             <span>Pending Requests</span>
             {pendingBookings.length > 0 && (
-              <span className={`w-4 h-4 rounded-full text-[9px] font-black flex items-center justify-center ${
-                activeTab === 'pending' ? 'bg-black text-gold-400' : 'bg-amber-400 text-black animate-pulse'
+              <span className={`w-4 h-4 rounded-full text-[9px] font-black flex items-center justify-center shadow-sm ${
+                activeTab === 'pending' ? 'bg-black text-gold-300' : 'bg-amber-400 text-black animate-pulse'
               }`}>
                 {pendingBookings.length}
               </span>
@@ -128,7 +128,7 @@ export const AppointmentsManager: React.FC = () => {
             onClick={() => setActiveTab('confirmed')}
             className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all ${
               activeTab === 'confirmed'
-                ? 'bg-gradient-to-r from-gold-500 to-gold-400 text-black shadow-md'
+                ? 'gold-gradient-btn'
                 : 'text-gray-400 hover:text-white'
             }`}
           >
@@ -139,7 +139,7 @@ export const AppointmentsManager: React.FC = () => {
             onClick={() => setActiveTab('completed')}
             className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all ${
               activeTab === 'completed'
-                ? 'bg-gradient-to-r from-gold-500 to-gold-400 text-black shadow-md'
+                ? 'gold-gradient-btn'
                 : 'text-gray-400 hover:text-white'
             }`}
           >
