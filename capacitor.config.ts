@@ -1,8 +1,8 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: 'com.algoshops.saloonspot',
-  appName: 'ALGO Saloon Spot',
+  appId: 'com.algosaloon.spotpro',
+  appName: 'ALGO SALOON Spot Pro',
   webDir: 'dist',
   server: {
     androidScheme: 'https'
